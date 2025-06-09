@@ -9,6 +9,8 @@ let offsetX = 0;
 let offsetY = 0;
 let isDragging = false;
 let lastX, lastY;
+let isAnimationScheduled = false;
+
 
 function resizeCanvas() {
   const padding = 40; // 20px padding z każdej strony
@@ -88,68 +90,59 @@ function toXY(p) {
   return [x, y];
 }
 
+function requestDraw() {
+  if (!isAnimationScheduled) {
+    isAnimationScheduled = true;
+    requestAnimationFrame(draw);
+  }
+}
+
 function draw() {
+  isAnimationScheduled = false;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Najpierw casing (obramowanie dróg) — gruba czarna linia
+  // Jedna pętla zamiast trzech
   for (const way of ways) {
     if (way.type === 'road') {
+      // Casing
       ctx.beginPath();
       ctx.setLineDash([]);
-      ctx.lineWidth = 8; // casing
+      ctx.lineWidth = 8;
       ctx.strokeStyle = "black";
-
-      way.points.forEach((p, i) => {
-        const [x, y] = toXY(p);
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      });
+      drawPath(way.points);
       ctx.stroke();
-    }
-  }
 
-  // Potem fill (środek drogi) — węższa żółta linia
-  for (const way of ways) {
-    if (way.type === 'road') {
+      // Fill
+      ctx.beginPath();
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = "#fcdc4d";
+      drawPath(way.points);
+      ctx.stroke();
+    } else if (way.type === 'railway') {
+      ctx.beginPath();
+      ctx.setLineDash([8, 8]);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "#666666";
+      drawPath(way.points);
+      ctx.stroke();
+    } else {
       ctx.beginPath();
       ctx.setLineDash([]);
-      ctx.lineWidth = 5; // fill
-      ctx.strokeStyle = "#fcdc4d"; // klasyczny żółty drogowy
-
-      way.points.forEach((p, i) => {
-        const [x, y] = toXY(p);
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      });
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = "black";
+      drawPath(way.points);
       ctx.stroke();
     }
   }
+}
 
-  // Koleje i inne linie
-  for (const way of ways) {
-    if (way.type !== 'road') {
-      ctx.beginPath();
-
-      if (way.type === 'railway') {
-        ctx.setLineDash([8, 8]);
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = "#666666";
-      } else {
-        ctx.setLineDash([]);
-        ctx.lineWidth = 1;
-        ctx.strokeStyle = "black";
-      }
-
-      way.points.forEach((p, i) => {
-        const [x, y] = toXY(p);
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      });
-      ctx.stroke();
-    }
-  }
-
-  requestAnimationFrame(draw);
+// Dodaj helper do rysowania ścieżki
+function drawPath(points) {
+  points.forEach((p, i) => {
+    const [x, y] = toXY(p);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
 }
 
 // Pan i zoom
@@ -166,6 +159,7 @@ canvas.addEventListener("mousemove", e => {
     offsetY += e.clientY - lastY;
     lastX = e.clientX;
     lastY = e.clientY;
+    requestDraw();
   }
 });
 canvas.addEventListener("wheel", (e) => {
@@ -174,24 +168,19 @@ canvas.addEventListener("wheel", (e) => {
   const zoomIntensity = 0.1;
   const zoom = e.deltaY < 0 ? 1 + zoomIntensity : 1 - zoomIntensity;
   
-  // Oblicz pozycję kursora względem canvas
   const rect = canvas.getBoundingClientRect();
   const mouseX = e.clientX - rect.left;
   const mouseY = e.clientY - rect.top;
 
-  // Oblicz pozycję kursora w przestrzeni mapy przed zoomem
   const mapX = (mouseX - offsetX) / scale;
   const mapY = (mouseY - offsetY) / scale;
 
-  // Zastosuj zoom
   scale *= zoom;
-
-  // Oblicz nowe przesunięcie, aby zachować punkt pod kursorem
+  
   offsetX = mouseX - mapX * scale;
   offsetY = mouseY - mapY * scale;
-
-  // Odśwież widok
-  requestAnimationFrame(draw);
+  
+  requestDraw();
 });
 
 window.addEventListener('resize', resizeCanvas);
