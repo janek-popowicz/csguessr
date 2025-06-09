@@ -168,10 +168,30 @@ canvas.addEventListener("mousemove", e => {
     lastY = e.clientY;
   }
 });
-canvas.addEventListener("wheel", e => {
+canvas.addEventListener("wheel", (e) => {
   e.preventDefault();
-  const zoom = e.deltaY < 0 ? 1.1 : 0.9;
+  
+  const zoomIntensity = 0.1;
+  const zoom = e.deltaY < 0 ? 1 + zoomIntensity : 1 - zoomIntensity;
+  
+  // Oblicz pozycję kursora względem canvas
+  const rect = canvas.getBoundingClientRect();
+  const mouseX = e.clientX - rect.left;
+  const mouseY = e.clientY - rect.top;
+
+  // Oblicz pozycję kursora w przestrzeni mapy przed zoomem
+  const mapX = (mouseX - offsetX) / scale;
+  const mapY = (mouseY - offsetY) / scale;
+
+  // Zastosuj zoom
   scale *= zoom;
+
+  // Oblicz nowe przesunięcie, aby zachować punkt pod kursorem
+  offsetX = mouseX - mapX * scale;
+  offsetY = mouseY - mapY * scale;
+
+  // Odśwież widok
+  requestAnimationFrame(draw);
 });
 
 window.addEventListener('resize', resizeCanvas);
