@@ -54,18 +54,40 @@ fetch('/map.osm')
           // Sprawdź czy to linia kolejowa lub droga
           const isRailway = tags.some(tag => 
             tag.getAttribute("k") === "railway" &&
-            (tag.getAttribute("v") === "rail" || tag.getAttribute("v") === "tram")
+            (tag.getAttribute("v") === "rail" || tag.getAttribute("v") === "tram" || tag.getAttribute("v") === "subway")
           );
-          
+          if (isRailway) {
+            // Znajdź tag railway aby pobrać jego wartość (rail/tram/subway)
+            const railwayTag = tags.find(tag => tag.getAttribute("k") === "railway");
+            ways.push({
+              points: nds,
+              type: "railway",
+              mode: railwayTag ? railwayTag.getAttribute("v") : "rail"
+            });
+            return;
+          };
           const isRoad = tags.some(tag => 
-            tag.getAttribute("k") === "maxspeed" //||
-            //tag.getAttribute("k") === "highway"
+            tag.getAttribute("k") === "maxspeed" // to jest głupie ale highway oznacza ścieżki dla pieszych
+            
           );
-          
+          let maxSpeed = 30; // domyślna wartość
+          if (isRoad) {
+            const speedTag = tags.find(tag => tag.getAttribute("k") === "maxspeed");
+            if (speedTag) {
+              const speed = parseInt(speedTag.getAttribute("v"), 10);
+              if (speed > 0) maxSpeed = speed;
+            }
+          }
           ways.push({
             points: nds,
-            type: isRailway ? 'railway' : (isRoad ? 'road' : 'regular')
+            type: isRailway ? 'railway' : (isRoad ? 'road' : 'regular'),
+            maxSpeed: isRoad ? maxSpeed : 0
           });
+          // Jeśli to droga, sprawdź maxspeed
+      
+      
+          
+          
         }
       }
     });
@@ -101,35 +123,69 @@ function draw() {
   isAnimationScheduled = false;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Jedna pętla zamiast trzech
+  // Najpierw rysuj wszystko oprócz kolei
   for (const way of ways) {
     if (way.type === 'road') {
+      const width = way.maxSpeed * 0.01;
+      
       // Casing
       ctx.beginPath();
       ctx.setLineDash([]);
-      ctx.lineWidth = 8;
+      ctx.lineWidth = (width + 0.1) * scale;
       ctx.strokeStyle = "black";
       drawPath(way.points);
       ctx.stroke();
 
       // Fill
       ctx.beginPath();
-      ctx.lineWidth = 5;
-      ctx.strokeStyle = "#fcdc4d";
+      ctx.lineWidth = width * scale;
+      ctx.strokeStyle = "#cdcdcd";
       drawPath(way.points);
       ctx.stroke();
-    } else if (way.type === 'railway') {
+    } else if (way.type !== 'railway') { // rysuj regularne ścieżki
       ctx.beginPath();
-      ctx.setLineDash([8, 8]);
-      ctx.lineWidth = 2;
+      ctx.setLineDash([]);
+      ctx.lineWidth = 0.1*scale;
+      ctx.strokeStyle = "black";
+      drawPath(way.points);
+      ctx.stroke();
+    }
+  }
+
+  // Teraz rysuj kolej na wierzchu
+  for (const way of ways) {
+    if (way.type === 'railway' && way.mode === 'rail') {
+      // Casing
+      ctx.beginPath();
+      ctx.setLineDash([]);
+      ctx.lineWidth = 0.4 * scale;
       ctx.strokeStyle = "#666666";
       drawPath(way.points);
       ctx.stroke();
-    } else {
+      
+      // Fill
+      ctx.beginPath();
+      ctx.setLineDash([0.4*scale, 0.4*scale]);
+      ctx.lineWidth = 0.2*scale;
+      ctx.strokeStyle = "#FFFFFF";
+      drawPath(way.points);
+      ctx.stroke();
+    }
+    else if (way.type === 'railway' && way.mode === 'tram') {
+      // Fill without casing
       ctx.beginPath();
       ctx.setLineDash([]);
-      ctx.lineWidth = 1;
-      ctx.strokeStyle = "black";
+      ctx.lineWidth = 0.2 * scale;
+      ctx.strokeStyle = "#FF0000"; // Czerwony dla tramwajów
+      drawPath(way.points);
+      ctx.stroke();
+    }
+    else if (way.type === 'railway' && way.mode === 'subway') {
+      // Fill without casing
+      ctx.beginPath();
+      ctx.setLineDash([]);
+      ctx.lineWidth = 0.5 * scale;
+      ctx.strokeStyle = "#323a53"; // Niebieski dla metra
       drawPath(way.points);
       ctx.stroke();
     }
