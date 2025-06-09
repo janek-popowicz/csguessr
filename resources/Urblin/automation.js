@@ -28,5 +28,8 @@ for (const way of wayElements) {
 
 console.log(`Usunięto ${removed} zduplikowanych <way>`);
 
-const output = new XMLSerializer().serializeToString(doc);
+let output = new XMLSerializer().serializeToString(doc);
+// Usuń puste linie i linie zawierające tylko białe znaki
+output = output.split('\n').filter(line => line.trim()).join('\n');
+
 fs.writeFileSync('output.osm', output, 'utf8');

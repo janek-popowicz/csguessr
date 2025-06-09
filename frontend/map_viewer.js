@@ -1,7 +1,7 @@
 const canvas = document.getElementById("map");
 const ctx = canvas.getContext("2d");
 
-let ways = [];
+let ways = [];  // Zmiana struktury - będziemy przechowywać {points: [], type: string}
 let nodes = {};
 let bounds;
 let scale = 1;
@@ -34,13 +34,41 @@ fetch('/map.osm')
     });
 
     xml.querySelectorAll("way").forEach(way => {
-      const nds = Array.from(way.querySelectorAll("nd"))
-        .map(nd => nodes[nd.getAttribute("ref")])
-        .filter(Boolean);
-      if (nds.length >= 2) ways.push(nds);
+      const tags = Array.from(way.querySelectorAll("tag"));
+      
+      // Sprawdź, czy nie jest to trasa promowa lub linia energetyczna
+      const shouldIgnore = tags.some(tag => 
+        (tag.getAttribute("k") === "seamark:type" && tag.getAttribute("v") === "ferry_route") ||
+        (tag.getAttribute("k") === "power" && tag.getAttribute("v") === "line")
+      );
+
+      // Dodaj do ways tylko jeśli nie powinno być ignorowane
+      if (!shouldIgnore) {
+        const nds = Array.from(way.querySelectorAll("nd"))
+          .map(nd => nodes[nd.getAttribute("ref")])
+          .filter(Boolean);
+        
+        if (nds.length >= 2) {
+          // Sprawdź czy to linia kolejowa lub droga
+          const isRailway = tags.some(tag => 
+            tag.getAttribute("k") === "railway" &&
+            (tag.getAttribute("v") === "rail" || tag.getAttribute("v") === "tram")
+          );
+          
+          const isRoad = tags.some(tag => 
+            tag.getAttribute("k") === "maxspeed" //||
+            //tag.getAttribute("k") === "highway"
+          );
+          
+          ways.push({
+            points: nds,
+            type: isRailway ? 'railway' : (isRoad ? 'road' : 'regular')
+          });
+        }
+      }
     });
 
-    const all = ways.flat();
+    const all = ways.flatMap(way => way.points);
     const lats = all.map(p => p.lat);
     const lons = all.map(p => p.lon);
     bounds = {
@@ -62,17 +90,63 @@ function toXY(p) {
 
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.strokeStyle = "black";
-  ctx.lineWidth = 1;
 
+  // Najpierw casing (obramowanie dróg) — gruba czarna linia
   for (const way of ways) {
-    ctx.beginPath();
-    way.forEach((p, i) => {
-      const [x, y] = toXY(p);
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    });
-    ctx.stroke();
+    if (way.type === 'road') {
+      ctx.beginPath();
+      ctx.setLineDash([]);
+      ctx.lineWidth = 8; // casing
+      ctx.strokeStyle = "black";
+
+      way.points.forEach((p, i) => {
+        const [x, y] = toXY(p);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+    }
+  }
+
+  // Potem fill (środek drogi) — węższa żółta linia
+  for (const way of ways) {
+    if (way.type === 'road') {
+      ctx.beginPath();
+      ctx.setLineDash([]);
+      ctx.lineWidth = 5; // fill
+      ctx.strokeStyle = "#fcdc4d"; // klasyczny żółty drogowy
+
+      way.points.forEach((p, i) => {
+        const [x, y] = toXY(p);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+    }
+  }
+
+  // Koleje i inne linie
+  for (const way of ways) {
+    if (way.type !== 'road') {
+      ctx.beginPath();
+
+      if (way.type === 'railway') {
+        ctx.setLineDash([8, 8]);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "#666666";
+      } else {
+        ctx.setLineDash([]);
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = "black";
+      }
+
+      way.points.forEach((p, i) => {
+        const [x, y] = toXY(p);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+    }
   }
 
   requestAnimationFrame(draw);
