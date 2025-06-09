@@ -13,6 +13,7 @@
   "dependencies": {
     "express": "^5.1.0",
     "osmtogeojson": "^2.2.0",
-    "xml2js": "^0.6.2"
+    "xml2js": "^0.6.2",
+    "xmldom": "^0.6.0"
   }
 }
