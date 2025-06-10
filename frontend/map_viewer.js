@@ -420,15 +420,13 @@ function draw() {
 
 
   // Tunele kolejowe
-  for (const mode of ['subway', 'tram', 'rail']) {
+  for (const mode of ['subway', 'rail']) {
     for (const railway of railways[mode].tunnel) {
       ctx.beginPath();
       ctx.setLineDash([1 * scale, 1 * scale]);
       ctx.lineWidth = mode === 'subway' ? 0.5 * scale : 
-                     mode === 'tram' ? 0.2 * scale : 
                      0.4 * scale;
       ctx.strokeStyle = mode === 'subway' ? "#323a53" : 
-                       mode === 'tram' ? "#FF0000" : 
                        "#666666";
       drawPath(railway.points);
       ctx.stroke();
@@ -444,7 +442,7 @@ function draw() {
       }
     }
   }
-
+  // Tunele drogowe
   for (const road of roads.tunnel) {
     let width;
     let roadColor;
@@ -500,15 +498,13 @@ function draw() {
   }
 
   // Zwykłe koleje bez tramwajów
-  for (const mode of ['subway', 'tram', 'rail']) {
+  for (const mode of ['subway', 'rail']) {
     for (const railway of railways[mode].regular) {
       ctx.beginPath();
       ctx.setLineDash([]);
       ctx.lineWidth = mode === 'subway' ? 0.5 * scale : 
-                     mode === 'tram' ? 0.2 * scale : 
                      0.4 * scale;
       ctx.strokeStyle = mode === 'subway' ? "#323a53" : 
-                       mode === 'tram' ? "#FF0000" : 
                        "#666666";
       drawPath(railway.points);
       ctx.stroke();
@@ -578,15 +574,23 @@ function draw() {
     ctx.stroke();
   }
 
+  for (const railway of railways.tram.regular) {
+      ctx.beginPath();
+      ctx.lineWidth = 0.2 * scale;
+      ctx.strokeStyle = "#FF0000";
+      drawPath(railway.points);
+      ctx.stroke();
+      }
+    
+
   
   // Na końcu mosty kolejowe
-  for (const mode of ['subway', 'tram', 'rail']) {
+  for (const mode of ['subway', 'rail']) {
     for (const railway of railways[mode].bridge) {
       // Cień/kontur
       ctx.beginPath();
       ctx.setLineDash([]);
       ctx.lineWidth = (mode === 'subway' ? 0.7 : 
-                      mode === 'tram' ? 0.4 : 
                       0.6) * scale;
       ctx.strokeStyle = "#000000";
       drawPath(railway.points);
@@ -595,7 +599,6 @@ function draw() {
       // Tło
       ctx.beginPath();
       ctx.lineWidth = (mode === 'subway' ? 0.6 : 
-                      mode === 'tram' ? 0.3 : 
                       0.5) * scale;
       ctx.strokeStyle = "#ffffff";
       drawPath(railway.points);
@@ -604,10 +607,8 @@ function draw() {
       // Właściwa linia
       ctx.beginPath();
       ctx.lineWidth = (mode === 'subway' ? 0.5 : 
-                      mode === 'tram' ? 0.2 : 
                       0.4) * scale;
       ctx.strokeStyle = mode === 'subway' ? "#323a53" : 
-                       mode === 'tram' ? "#FF0000" : 
                        "#666666";
       drawPath(railway.points);
       ctx.stroke();
