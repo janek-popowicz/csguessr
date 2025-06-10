@@ -1,7 +1,15 @@
 const canvas = document.getElementById("map");
 const ctx = canvas.getContext("2d");
 
-let ways = [];  // Zmiana struktury - będziemy przechowywać {points: [], type: string}
+let ways = [];  // zostaw dla kompatybilności wstecznej
+let roads = [];  // drogi
+let railways = {
+  rail: [],     // zwykłe koleje
+  tram: [],     // tramwaje
+  subway: []    // metro
+};
+let regularWays = []; // pozostałe ścieżki
+
 let nodes = {};
 let bounds;
 let scale = 1;
@@ -77,8 +85,6 @@ fetch('/map.osm')
       );
 
       if (isWater || waterRelationWays.has(id)) {
-        console.log("Dodaję water way:", id, "punktów:", nds.length, 
-                    isWater ? "(tag water)" : "(część relacji)");
         waterWays.set(id, nds);
         // Nie używamy return, żeby punkty były uwzględnione w bounds
       }
@@ -91,47 +97,44 @@ fetch('/map.osm')
 
       // Dodaj do ways tylko jeśli nie powinno być ignorowane i nie jest wodą
       if (!shouldIgnore && !isWater) {
-        // Sprawdź czy to linia kolejowa lub droga
         const isRailway = tags.some(tag => 
           tag.getAttribute("k") === "railway" &&
           (tag.getAttribute("v") === "rail" || tag.getAttribute("v") === "tram" || tag.getAttribute("v") === "subway")
         );
+
         if (isRailway) {
-          // Znajdź tag railway aby pobrać jego wartość (rail/tram/subway)
           const railwayTag = tags.find(tag => tag.getAttribute("k") === "railway");
-          ways.push({
+          const mode = railwayTag ? railwayTag.getAttribute("v") : "rail";
+          railways[mode].push({
             points: nds,
             type: "railway",
-            mode: railwayTag ? railwayTag.getAttribute("v") : "rail"
+            mode: mode
           });
           return;
-        };
-        const isRoad = tags.some(tag => 
-          tag.getAttribute("k") === "maxspeed" // to jest głupie ale highway oznacza ścieżki dla pieszych
-          
-        );
-        let maxSpeed = 30; // domyślna wartość
+        }
+
+        const isRoad = tags.some(tag => tag.getAttribute("k") === "maxspeed");
         if (isRoad) {
+          let maxSpeed = 30;
           const speedTag = tags.find(tag => tag.getAttribute("k") === "maxspeed");
           if (speedTag) {
             const speed = parseInt(speedTag.getAttribute("v"), 10);
             if (speed > 0) maxSpeed = speed;
           }
+          roads.push({
+            points: nds,
+            type: 'road',
+            maxSpeed: maxSpeed
+          });
+        } else {
+          regularWays.push({
+            points: nds,
+            type: 'regular'
+          });
         }
-        ways.push({
-          points: nds,
-          type: isRailway ? 'railway' : (isRoad ? 'road' : 'regular'),
-          maxSpeed: isRoad ? maxSpeed : 0
-        });
-        // Jeśli to droga, sprawdź maxspeed
-    
-    
-        
       }
     });
 
-    // Po dodaniu way'ów wodnych, przed parsowaniem relacji, dodaj:
-    console.log("Dostępne water ways:", Array.from(waterWays.keys()));
 
     // Parsuj relacje wody
     xml.querySelectorAll("relation").forEach(relation => {
@@ -145,21 +148,14 @@ fetch('/map.osm')
       );
 
       if (isWaterMultipolygon) {
-        console.log("Znaleziono water multipolygon:", relation.getAttribute("id"));
         const members = Array.from(relation.querySelectorAll("member"));
         
-        // Debug members
-        console.log("Members:", members.map(m => ({
-          ref: m.getAttribute("ref"),
-          role: m.getAttribute("role")
-        })));
 
         const outer = members
           .filter(m => m.getAttribute("role") === "outer")
           .map(m => {
             const ref = m.getAttribute("ref");
             const wayPoints = waterWays.get(ref);
-            console.log("Szukam outer way:", ref, "znaleziono punktów:", wayPoints?.length);
             return wayPoints;
           })
           .filter(Boolean);
@@ -169,12 +165,10 @@ fetch('/map.osm')
           .map(m => {
             const ref = m.getAttribute("ref");
             const wayPoints = waterWays.get(ref);
-            console.log("Szukam inner way:", ref, "znaleziono punktów:", wayPoints?.length);
             return wayPoints;
           })
           .filter(Boolean);
 
-        console.log("Outer ways:", outer.length, "Inner ways:", inner.length);
 
         if (outer.length > 0) {
           waterAreas.push({
@@ -183,14 +177,23 @@ fetch('/map.osm')
             id: relation.getAttribute("id"),
             type: 'multipolygon'
           });
-          console.log("Dodano obszar wodny:", relation.getAttribute("id"));
         }
       }
     });
 
-    const all = ways.flatMap(way => way.points);
-    const lats = all.map(p => p.lat);
-    const lons = all.map(p => p.lon);
+    // Przed obliczaniem bounds, zbierz wszystkie punkty ze wszystkich źródeł
+    const allPoints = [
+      ...regularWays.flatMap(way => way.points),
+      ...roads.flatMap(way => way.points),
+      ...railways.rail.flatMap(way => way.points),
+      ...railways.tram.flatMap(way => way.points),
+      ...railways.subway.flatMap(way => way.points),
+      ...Array.from(waterWays.values()).flat()
+    ];
+
+    // Oblicz bounds na podstawie wszystkich punktów
+    const lats = allPoints.map(p => p.lat);
+    const lons = allPoints.map(p => p.lon);
     bounds = {
       minLat: Math.min(...lats),
       maxLat: Math.max(...lats),
@@ -219,7 +222,7 @@ function draw() {
   isAnimationScheduled = false;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Najpierw rysuj wodę
+  // 1. Najpierw rysuj wodę
   for (const area of waterAreas) {
     if (area.type === 'multipolygon') {
       ctx.fillStyle = "#aad3df";
@@ -254,79 +257,90 @@ function draw() {
       ctx.fill('evenodd');
       
       // Rysuj kontury
-      ctx.lineWidth = 1 * scale;
+      ctx.lineWidth = 0 * scale;
       ctx.strokeStyle = "#66b8d3";
       ctx.stroke();
     }
   }
 
-  // Najpierw rysuj wszystko oprócz kolei
-  for (const way of ways) {
-    if (way.type === 'road') {
-      const width = way.maxSpeed * 0.01;
-      
-      // Casing
-      ctx.beginPath();
-      ctx.setLineDash([]);
-      ctx.lineWidth = (width + 0.1) * scale;
-      ctx.strokeStyle = "black";
-      drawPath(way.points);
-      ctx.stroke();
-
-      // Fill
-      ctx.beginPath();
-      ctx.lineWidth = width * scale;
-      ctx.strokeStyle = "#cdcdcd";
-      drawPath(way.points);
-      ctx.stroke();
-    } else if (way.type !== 'railway') { // rysuj regularne ścieżki
-      ctx.beginPath();
-      ctx.setLineDash([]);
-      ctx.lineWidth = 0.1*scale;
-      ctx.strokeStyle = "black";
-      drawPath(way.points);
-      ctx.stroke();
-    }
+  // Metro
+  for (const subway of railways.subway) {
+    ctx.beginPath();
+    ctx.setLineDash([]);
+    ctx.lineWidth = 0.5 * scale;
+    ctx.strokeStyle = "#323a53";
+    drawPath(subway.points);
+    ctx.stroke();
   }
 
-  // Teraz rysuj kolej na wierzchu
-  for (const way of ways) {
-    if (way.type === 'railway' && way.mode === 'rail') {
-      // Casing
-      ctx.beginPath();
-      ctx.setLineDash([]);
-      ctx.lineWidth = 0.4 * scale;
-      ctx.strokeStyle = "#666666";
-      drawPath(way.points);
-      ctx.stroke();
-      
-      // Fill
-      ctx.beginPath();
-      ctx.setLineDash([0.4*scale, 0.4*scale]);
-      ctx.lineWidth = 0.2*scale;
-      ctx.strokeStyle = "#FFFFFF";
-      drawPath(way.points);
-      ctx.stroke();
-    }
-    else if (way.type === 'railway' && way.mode === 'tram') {
-      // Fill without casing
-      ctx.beginPath();
-      ctx.setLineDash([]);
-      ctx.lineWidth = 0.2 * scale;
-      ctx.strokeStyle = "#FF0000"; // Czerwony dla tramwajów
-      drawPath(way.points);
-      ctx.stroke();
-    }
-    else if (way.type === 'railway' && way.mode === 'subway') {
-      // Fill without casing
-      ctx.beginPath();
-      ctx.setLineDash([]);
-      ctx.lineWidth = 0.5 * scale;
-      ctx.strokeStyle = "#323a53"; // Niebieski dla metra
-      drawPath(way.points);
-      ctx.stroke();
-    }
+  // 2. Rysuj zwykłe ścieżki
+  ctx.beginPath();
+  ctx.setLineDash([]);
+  ctx.lineWidth = 0.1 * scale;
+  ctx.strokeStyle = "black";
+  for (const way of regularWays) {
+    drawPath(way.points);
   }
+  ctx.stroke();
+
+  // 3. Rysuj drogi
+  for (const road of roads) {
+    let width;
+    ctx.setLineDash([]);
+    // Dynamiczne przydzielanie kolorów na podstawie prędkości
+    let roadColor;
+    if (road.maxSpeed <= 30) {
+      roadColor = "#f7fabe"; // żółty
+      width = 0.3;
+    } else if (road.maxSpeed <= 40) {
+      roadColor = "#f7fabe"; // żółty
+      width = 0.6;
+    } else if (road.maxSpeed <= 95) {
+      roadColor = "#fcd5a3"; // pomarańczowy
+      width = 0.9
+    } else {
+      roadColor = "#e891a1"; // czerwony
+      width = 0.9;
+    }
+    // Fill
+    ctx.beginPath();
+    ctx.lineWidth = width * scale;
+    ctx.strokeStyle = roadColor;
+    drawPath(road.points);
+    ctx.stroke();
+  }
+
+  // 4. Rysuj koleje
+  // Zwykłe koleje
+  for (const railway of railways.rail) {
+    // Casing
+    ctx.beginPath();
+    ctx.setLineDash([]);
+    ctx.lineWidth = 0.4 * scale;
+    ctx.strokeStyle = "#666666";
+    drawPath(railway.points);
+    ctx.stroke();
+    
+    // Fill
+    ctx.beginPath();
+    ctx.setLineDash([0.4*scale, 0.4*scale]);
+    ctx.lineWidth = 0.2 * scale;
+    ctx.strokeStyle = "#FFFFFF";
+    drawPath(railway.points);
+    ctx.stroke();
+  }
+
+  // Tramwaje
+  for (const tram of railways.tram) {
+    ctx.beginPath();
+    ctx.setLineDash([]);
+    ctx.lineWidth = 0.2 * scale;
+    ctx.strokeStyle = "#FF0000";
+    drawPath(tram.points);
+    ctx.stroke();
+  }
+
+  
 }
 
 // Dodaj helper do rysowania ścieżki
