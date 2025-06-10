@@ -3,6 +3,7 @@ const ctx = canvas.getContext("2d");
 
 let ways = [];  // zostaw dla kompatybilności wstecznej
 let roads = [];  // drogi
+let footpaths = []; // ścieżki
 let railways = {
   rail: [],     // zwykłe koleje
   tram: [],     // tramwaje
@@ -22,6 +23,15 @@ let isAnimationScheduled = false;
 let waterAreas = [];  // Tablica na obszary wodne
 let waterRelations = []; // Tablica na relacje wody
 let waterWays = new Map(); // Mapa do przechowywania water ways przed przetworzeniem ich do relations
+
+// Na początku pliku, dodaj nowe struktury
+let buildings = {
+  landuse: {
+    residential: [],  // zwykłe budynki mieszkalne
+    industrial: []    // budynki przemysłowe
+  },
+  amenities: []       // budynki użyteczności publicznej
+};
 
 function resizeCanvas() {
   const padding = 40; // 20px padding z każdej strony
@@ -78,6 +88,40 @@ fetch('/map.osm')
 
       if (nds.length < 2) return;
 
+      const isLanduse = tags.some(tag => tag.getAttribute("k") === "landuse");
+      const isOffice = tags.some(tag => tag.getAttribute("k") === "office");
+      const isAmenity = tags.some(tag => tag.getAttribute("k") === "amenity");
+
+      if (isLanduse || isOffice || isAmenity) {
+        // Sprawdź czy way jest zamknięty (pierwszy i ostatni punkt są te same)
+        if (nds[0].lat === nds[nds.length-1].lat && nds[0].lon === nds[nds.length-1].lon) {
+          if (isLanduse || isOffice) {
+            let landUseType;
+            if (isOffice) {
+              landUseType = "residential"; // Traktuj office jak residential
+            } else {
+              const landUseTag = tags.find(tag => tag.getAttribute("k") === "landuse");
+              landUseType = landUseTag.getAttribute("v");
+              if (!(landUseType === "industrial")) {
+                landUseType = "residential";  // Domyślny typ dla innych landuse
+              }
+            }
+            buildings.landuse[landUseType].push({
+              points: nds,
+              type: landUseType
+            });
+          } else if (isAmenity) {  // Przenieś na ten sam poziom co if (isLanduse)
+            const amenityTag = tags.find(tag => tag.getAttribute("k") === "amenity");
+            buildings.amenities.push({
+              points: nds,
+              type: 'amenity',
+              amenityType: amenityTag.getAttribute("v")
+            });
+          }
+          return;  // Przenieś return na koniec całego bloku
+        }
+      }
+
       // Sprawdź czy to woda albo część relacji wody
       const isWater = tags.some(tag => 
         tag.getAttribute("k") === "natural" && 
@@ -112,6 +156,19 @@ fetch('/map.osm')
           });
           return;
         }
+
+        const isFootway = tags.some(tag => 
+          tag.getAttribute("k") === "highway" && 
+          tag.getAttribute("v") === "footway"
+        );
+        if (isFootway) {
+          footpaths.push({
+            points: nds,
+            type: 'footway'
+          });
+          return;
+        }
+
 
         const isRoad = tags.some(tag => tag.getAttribute("k") === "maxspeed");
         if (isRoad) {
@@ -184,6 +241,7 @@ fetch('/map.osm')
     // Przed obliczaniem bounds, zbierz wszystkie punkty ze wszystkich źródeł
     const allPoints = [
       ...regularWays.flatMap(way => way.points),
+      ...footpaths.flatMap(way => way.points),
       ...roads.flatMap(way => way.points),
       ...railways.rail.flatMap(way => way.points),
       ...railways.tram.flatMap(way => way.points),
@@ -273,34 +331,82 @@ function draw() {
     ctx.stroke();
   }
 
-  // 2. Rysuj zwykłe ścieżki
-  ctx.beginPath();
+  // 2. Rysuj budynki
   ctx.setLineDash([]);
-  ctx.lineWidth = 0.1 * scale;
-  ctx.strokeStyle = "black";
-  for (const way of regularWays) {
-    drawPath(way.points);
-  }
-  ctx.stroke();
 
-  // 3. Rysuj drogi
+  // Rysuj landuse residential
+  ctx.fillStyle = "#e8d8c1";  // Kolor do zmiany
+  for (const building of buildings.landuse.residential) {
+    ctx.beginPath();
+    drawPath(building.points);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Kontur
+    ctx.lineWidth = 0.1 * scale;
+    ctx.strokeStyle = "#666666";
+    ctx.stroke();
+  }
+
+  // Rysuj landuse industrial
+  ctx.fillStyle = "#e0dede";  // Kolor do zmiany
+  for (const building of buildings.landuse.industrial) {
+    ctx.beginPath();
+    drawPath(building.points);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Kontur
+    ctx.lineWidth = 0.1 * scale;
+    ctx.strokeStyle = "#666666";
+    ctx.stroke();
+  }
+
+  // Rysuj amenities
+  ctx.fillStyle = "#f2d4c8";  // Kolor do zmiany
+  for (const building of buildings.amenities) {
+    ctx.beginPath();
+    drawPath(building.points);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Kontur
+    ctx.lineWidth = 0.1 * scale;
+    ctx.strokeStyle = "#666666";
+    ctx.stroke();
+  }
+
+  // 3. Rysuj ścieżki
+  ctx.setLineDash([0.1*scale, 0.1*scale]);
+
+  // Potem zwykłe ścieżki
+  ctx.lineWidth = 0.1 * scale;
+  ctx.strokeStyle = "#f8c5bd";
+  for (const footway of footpaths) {
+    ctx.beginPath();
+    drawPath(footway.points);
+    ctx.stroke();
+  }
+
+
+  ctx.setLineDash([]);
+  // 4. Rysuj drogi
   for (const road of roads) {
     let width;
-    ctx.setLineDash([]);
     // Dynamiczne przydzielanie kolorów na podstawie prędkości
     let roadColor;
     if (road.maxSpeed <= 30) {
       roadColor = "#f7fabe"; // żółty
-      width = 0.3;
+      width = 0.4;
     } else if (road.maxSpeed <= 40) {
       roadColor = "#f7fabe"; // żółty
-      width = 0.6;
+      width = 0.7;
     } else if (road.maxSpeed <= 95) {
       roadColor = "#fcd5a3"; // pomarańczowy
-      width = 0.9
+      width = 1;
     } else {
       roadColor = "#e891a1"; // czerwony
-      width = 0.9;
+      width = 1;
     }
     // Fill
     ctx.beginPath();
@@ -310,7 +416,7 @@ function draw() {
     ctx.stroke();
   }
 
-  // 4. Rysuj koleje
+  // 5. Rysuj koleje
   // Zwykłe koleje
   for (const railway of railways.rail) {
     // Casing
