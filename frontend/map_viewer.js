@@ -4,17 +4,27 @@ const ctx = canvas.getContext("2d");
 let ways = [];  // zostaw dla kompatybilności wstecznej
 let roads = {
   regular: [],
-  bridge: []
+  bridge: [],
+  tunnel: []  // dodaj tunele
 };
 
 let footpaths = []; // ścieżki
 let railways = {
   rail: {
     regular: [],
-    bridge: []
+    bridge: [],
+    tunnel: []
   },
-  tram: [],
-  subway: []    // metro
+  tram: {
+    regular: [],
+    bridge: [],
+    tunnel: []
+  },
+  subway: {
+    regular: [],
+    bridge: [],
+    tunnel: []
+  }
 };
 let regularWays = []; // pozostałe ścieżki
 
@@ -160,20 +170,20 @@ fetch('/map.osm')
             tag.getAttribute("k") === "bridge" && 
             tag.getAttribute("v") === "yes"
           );
+          const isTunnel = tags.some(tag => 
+            tag.getAttribute("k") === "tunnel" && 
+            tag.getAttribute("v") === "yes"
+          );
 
-          if (mode === "rail") {
-            railways.rail[isBridge ? "bridge" : "regular"].push({
-              points: nds,
-              type: "railway",
-              mode: mode
-            });
-          } else {
-            railways[mode].push({
-              points: nds,
-              type: "railway",
-              mode: mode
-            });
-          }
+          let category = 'regular';
+          if (isBridge) category = 'bridge';
+          else if (isTunnel) category = 'tunnel';
+
+          railways[mode][category].push({
+            points: nds,
+            type: "railway",
+            mode: mode
+          });
           return;
         }
 
@@ -203,8 +213,16 @@ fetch('/map.osm')
             tag.getAttribute("k") === "bridge" && 
             tag.getAttribute("v") === "yes"
           );
+          const isTunnel = tags.some(tag => 
+            tag.getAttribute("k") === "tunnel" && 
+            tag.getAttribute("v") === "yes"
+          );
 
-          roads[isBridge ? "bridge" : "regular"].push({
+          let category = 'regular';
+          if (isBridge) category = 'bridge';
+          else if (isTunnel) category = 'tunnel';
+
+          roads[category].push({
             points: nds,
             type: 'road',
             maxSpeed: maxSpeed
@@ -270,10 +288,16 @@ fetch('/map.osm')
       ...footpaths.flatMap(way => way.points),
       ...roads.regular.flatMap(way => way.points),
       ...roads.bridge.flatMap(way => way.points),
+      ...roads.tunnel.flatMap(way => way.points),
       ...railways.rail.regular.flatMap(way => way.points),
       ...railways.rail.bridge.flatMap(way => way.points),
-      ...railways.tram.flatMap(way => way.points),
-      ...railways.subway.flatMap(way => way.points),
+      ...railways.rail.tunnel.flatMap(way => way.points),
+      ...railways.tram.regular.flatMap(way => way.points),
+      ...railways.tram.bridge.flatMap(way => way.points),
+      ...railways.tram.tunnel.flatMap(way => way.points),
+      ...railways.subway.regular.flatMap(way => way.points),
+      ...railways.subway.bridge.flatMap(way => way.points),
+      ...railways.subway.tunnel.flatMap(way => way.points),
       ...Array.from(waterWays.values()).flat()
     ];
 
@@ -349,16 +373,6 @@ function draw() {
     }
   }
 
-  // Metro
-  for (const subway of railways.subway) {
-    ctx.beginPath();
-    ctx.setLineDash([]);
-    ctx.lineWidth = 0.5 * scale;
-    ctx.strokeStyle = "#323a53";
-    drawPath(subway.points);
-    ctx.stroke();
-  }
-
   // 2. Rysuj budynki
   ctx.setLineDash([]);
 
@@ -404,21 +418,62 @@ function draw() {
     ctx.stroke();
   }
 
-  // 3. Rysuj ścieżki
-  ctx.setLineDash([0.1*scale, 0.1*scale]);
 
-  // Potem zwykłe ścieżki
-  ctx.lineWidth = 0.1 * scale;
-  ctx.strokeStyle = "#f8c5bd";
-  for (const footway of footpaths) {
+  // Tunele kolejowe
+  for (const mode of ['subway', 'tram', 'rail']) {
+    for (const railway of railways[mode].tunnel) {
+      ctx.beginPath();
+      ctx.setLineDash([1 * scale, 1 * scale]);
+      ctx.lineWidth = mode === 'subway' ? 0.5 * scale : 
+                     mode === 'tram' ? 0.2 * scale : 
+                     0.4 * scale;
+      ctx.strokeStyle = mode === 'subway' ? "#323a53" : 
+                       mode === 'tram' ? "#FF0000" : 
+                       "#666666";
+      drawPath(railway.points);
+      ctx.stroke();
+
+      if (mode === 'rail') {
+        // Białe kreski na torach
+        ctx.beginPath();
+        ctx.setLineDash([0.4*scale, 0.4*scale]);
+        ctx.lineWidth = 0.2 * scale;
+        ctx.strokeStyle = "#FFFFFF";
+        drawPath(railway.points);
+        ctx.stroke();
+      }
+    }
+  }
+
+  for (const road of roads.tunnel) {
+    let width;
+    let roadColor;
+    // Dynamiczne przydzielanie kolorów na podstawie prędkości
+    if (road.maxSpeed <= 30) {
+      roadColor = "#f7fabe"; // żółty
+      width = 0.4;
+    } else if (road.maxSpeed <= 40) {
+      roadColor = "#f7fabe"; // żółty
+      width = 0.7;
+    } else if (road.maxSpeed <= 95) {
+      roadColor = "#fcd5a3"; // pomarańczowy
+      width = 1;
+    } else {
+      roadColor = "#e891a1"; // czerwony
+      width = 1;
+    }
+
     ctx.beginPath();
-    drawPath(footway.points);
+    ctx.setLineDash([1 * scale, 1 * scale]);  // przerywana linia dla tuneli
+    ctx.lineWidth = width * scale;
+    ctx.strokeStyle = roadColor;
+    drawPath(road.points);
     ctx.stroke();
   }
 
 
-  ctx.setLineDash([]);
-  // 4. Rysuj drogi
+  // Drogi normalne
+  ctx.setLineDash([]); // Resetuj linię przerywaną
   for (const road of roads.regular) {
     let width;
     // Dynamiczne przydzielanie kolorów na podstawie prędkości
@@ -444,7 +499,45 @@ function draw() {
     ctx.stroke();
   }
 
-  // Potem mosty
+  // Zwykłe koleje bez tramwajów
+  for (const mode of ['subway', 'tram', 'rail']) {
+    for (const railway of railways[mode].regular) {
+      ctx.beginPath();
+      ctx.setLineDash([]);
+      ctx.lineWidth = mode === 'subway' ? 0.5 * scale : 
+                     mode === 'tram' ? 0.2 * scale : 
+                     0.4 * scale;
+      ctx.strokeStyle = mode === 'subway' ? "#323a53" : 
+                       mode === 'tram' ? "#FF0000" : 
+                       "#666666";
+      drawPath(railway.points);
+      ctx.stroke();
+
+      if (mode === 'rail') {
+        // Białe kreski na torach
+        ctx.beginPath();
+        ctx.setLineDash([0.4*scale, 0.4*scale]);
+        ctx.lineWidth = 0.2 * scale;
+        ctx.strokeStyle = "#FFFFFF";
+        drawPath(railway.points);
+        ctx.stroke();
+      }
+    }
+  }
+
+  // Teraz ścieżki
+  ctx.setLineDash([0.1*scale, 0.1*scale]);
+  ctx.lineWidth = 0.1 * scale;
+  ctx.strokeStyle = "#f8c5bd";
+  for (const footway of footpaths) {
+    ctx.beginPath();
+    drawPath(footway.points);
+    ctx.stroke();
+  }
+
+
+
+  ctx.setLineDash([]); // Resetuj linię przerywaną przed rysowaniem mostów
   for (const road of roads.bridge) {
     let width;
     let roadColor;
@@ -485,67 +578,50 @@ function draw() {
     ctx.stroke();
   }
 
-  // 5. Rysuj koleje
-  // Zwykłe koleje
-  for (const railway of railways.rail.regular) {
-    // Casing
-    ctx.beginPath();
-    ctx.setLineDash([]);
-    ctx.lineWidth = 0.4 * scale;
-    ctx.strokeStyle = "#666666";
-    drawPath(railway.points);
-    ctx.stroke();
-    
-    // Fill
-    ctx.beginPath();
-    ctx.setLineDash([0.4*scale, 0.4*scale]);
-    ctx.lineWidth = 0.2 * scale;
-    ctx.strokeStyle = "#FFFFFF";
-    drawPath(railway.points);
-    ctx.stroke();
-  }
+  
+  // Na końcu mosty kolejowe
+  for (const mode of ['subway', 'tram', 'rail']) {
+    for (const railway of railways[mode].bridge) {
+      // Cień/kontur
+      ctx.beginPath();
+      ctx.setLineDash([]);
+      ctx.lineWidth = (mode === 'subway' ? 0.7 : 
+                      mode === 'tram' ? 0.4 : 
+                      0.6) * scale;
+      ctx.strokeStyle = "#000000";
+      drawPath(railway.points);
+      ctx.stroke();
 
-  // Tramwaje
-  for (const tram of railways.tram) {
-    ctx.beginPath();
-    ctx.setLineDash([]);
-    ctx.lineWidth = 0.2 * scale;
-    ctx.strokeStyle = "#FF0000";
-    drawPath(tram.points);
-    ctx.stroke();
-  }
+      // Tło
+      ctx.beginPath();
+      ctx.lineWidth = (mode === 'subway' ? 0.6 : 
+                      mode === 'tram' ? 0.3 : 
+                      0.5) * scale;
+      ctx.strokeStyle = "#ffffff";
+      drawPath(railway.points);
+      ctx.stroke();
 
-  // Mosty kolejowe
-  for (const railway of railways.rail.bridge) {
-    // Cień/kontur
-    ctx.beginPath();
-    ctx.setLineDash([]);
-    ctx.lineWidth = 0.6 * scale;
-    ctx.strokeStyle = "#000000";
-    drawPath(railway.points);
-    ctx.stroke();
+      // Właściwa linia
+      ctx.beginPath();
+      ctx.lineWidth = (mode === 'subway' ? 0.5 : 
+                      mode === 'tram' ? 0.2 : 
+                      0.4) * scale;
+      ctx.strokeStyle = mode === 'subway' ? "#323a53" : 
+                       mode === 'tram' ? "#FF0000" : 
+                       "#666666";
+      drawPath(railway.points);
+      ctx.stroke();
 
-    // Tło
-    ctx.beginPath();
-    ctx.lineWidth = 0.5 * scale;
-    ctx.strokeStyle = "#ffffff";
-    drawPath(railway.points);
-    ctx.stroke();
-
-    // Właściwa kolej
-    ctx.beginPath();
-    ctx.lineWidth = 0.4 * scale;
-    ctx.strokeStyle = "#666666";
-    drawPath(railway.points);
-    ctx.stroke();
-    
-    // Kreski na torach
-    ctx.beginPath();
-    ctx.setLineDash([0.4*scale, 0.4*scale]);
-    ctx.lineWidth = 0.2 * scale;
-    ctx.strokeStyle = "#FFFFFF";
-    drawPath(railway.points);
-    ctx.stroke();
+      if (mode === 'rail') {
+        // Kreski na torach
+        ctx.beginPath();
+        ctx.setLineDash([0.4*scale, 0.4*scale]);
+        ctx.lineWidth = 0.2 * scale;
+        ctx.strokeStyle = "#FFFFFF";
+        drawPath(railway.points);
+        ctx.stroke();
+      }
+    }
   }
 }
 
