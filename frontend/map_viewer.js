@@ -2,11 +2,18 @@ const canvas = document.getElementById("map");
 const ctx = canvas.getContext("2d");
 
 let ways = [];  // zostaw dla kompatybilności wstecznej
-let roads = [];  // drogi
+let roads = {
+  regular: [],
+  bridge: []
+};
+
 let footpaths = []; // ścieżki
 let railways = {
-  rail: [],     // zwykłe koleje
-  tram: [],     // tramwaje
+  rail: {
+    regular: [],
+    bridge: []
+  },
+  tram: [],
   subway: []    // metro
 };
 let regularWays = []; // pozostałe ścieżki
@@ -118,7 +125,7 @@ fetch('/map.osm')
               amenityType: amenityTag.getAttribute("v")
             });
           }
-          return;  // Przenieś return na koniec całego bloku
+          return  // Przenieś return na koniec całego bloku
         }
       }
 
@@ -149,11 +156,24 @@ fetch('/map.osm')
         if (isRailway) {
           const railwayTag = tags.find(tag => tag.getAttribute("k") === "railway");
           const mode = railwayTag ? railwayTag.getAttribute("v") : "rail";
-          railways[mode].push({
-            points: nds,
-            type: "railway",
-            mode: mode
-          });
+          const isBridge = tags.some(tag => 
+            tag.getAttribute("k") === "bridge" && 
+            tag.getAttribute("v") === "yes"
+          );
+
+          if (mode === "rail") {
+            railways.rail[isBridge ? "bridge" : "regular"].push({
+              points: nds,
+              type: "railway",
+              mode: mode
+            });
+          } else {
+            railways[mode].push({
+              points: nds,
+              type: "railway",
+              mode: mode
+            });
+          }
           return;
         }
 
@@ -178,7 +198,13 @@ fetch('/map.osm')
             const speed = parseInt(speedTag.getAttribute("v"), 10);
             if (speed > 0) maxSpeed = speed;
           }
-          roads.push({
+
+          const isBridge = tags.some(tag => 
+            tag.getAttribute("k") === "bridge" && 
+            tag.getAttribute("v") === "yes"
+          );
+
+          roads[isBridge ? "bridge" : "regular"].push({
             points: nds,
             type: 'road',
             maxSpeed: maxSpeed
@@ -242,8 +268,10 @@ fetch('/map.osm')
     const allPoints = [
       ...regularWays.flatMap(way => way.points),
       ...footpaths.flatMap(way => way.points),
-      ...roads.flatMap(way => way.points),
-      ...railways.rail.flatMap(way => way.points),
+      ...roads.regular.flatMap(way => way.points),
+      ...roads.bridge.flatMap(way => way.points),
+      ...railways.rail.regular.flatMap(way => way.points),
+      ...railways.rail.bridge.flatMap(way => way.points),
       ...railways.tram.flatMap(way => way.points),
       ...railways.subway.flatMap(way => way.points),
       ...Array.from(waterWays.values()).flat()
@@ -391,7 +419,7 @@ function draw() {
 
   ctx.setLineDash([]);
   // 4. Rysuj drogi
-  for (const road of roads) {
+  for (const road of roads.regular) {
     let width;
     // Dynamiczne przydzielanie kolorów na podstawie prędkości
     let roadColor;
@@ -416,9 +444,50 @@ function draw() {
     ctx.stroke();
   }
 
+  // Potem mosty
+  for (const road of roads.bridge) {
+    let width;
+    let roadColor;
+    // Dynamiczne przydzielanie kolorów na podstawie prędkości
+    if (road.maxSpeed <= 30) {
+      roadColor = "#f7fabe"; // żółty
+      width = 0.4;
+    } else if (road.maxSpeed <= 40) {
+      roadColor = "#f7fabe"; // żółty
+      width = 0.7;
+    } else if (road.maxSpeed <= 95) {
+      roadColor = "#fcd5a3"; // pomarańczowy
+      width = 1;
+    } else {
+      roadColor = "#e891a1"; // czerwony
+      width = 1;
+    }
+
+    // Cień/kontur
+    ctx.beginPath();
+    ctx.lineWidth = (width + 0.2) * scale;
+    ctx.strokeStyle = "#000000";
+    drawPath(road.points);
+    ctx.stroke();
+
+    // Tło
+    ctx.beginPath();
+    ctx.lineWidth = (width + 0.1) * scale;
+    ctx.strokeStyle = "#ffffff";
+    drawPath(road.points);
+    ctx.stroke();
+
+    // Właściwa droga
+    ctx.beginPath();
+    ctx.lineWidth = width * scale;
+    ctx.strokeStyle = roadColor;
+    drawPath(road.points);
+    ctx.stroke();
+  }
+
   // 5. Rysuj koleje
   // Zwykłe koleje
-  for (const railway of railways.rail) {
+  for (const railway of railways.rail.regular) {
     // Casing
     ctx.beginPath();
     ctx.setLineDash([]);
@@ -446,7 +515,38 @@ function draw() {
     ctx.stroke();
   }
 
-  
+  // Mosty kolejowe
+  for (const railway of railways.rail.bridge) {
+    // Cień/kontur
+    ctx.beginPath();
+    ctx.setLineDash([]);
+    ctx.lineWidth = 0.6 * scale;
+    ctx.strokeStyle = "#000000";
+    drawPath(railway.points);
+    ctx.stroke();
+
+    // Tło
+    ctx.beginPath();
+    ctx.lineWidth = 0.5 * scale;
+    ctx.strokeStyle = "#ffffff";
+    drawPath(railway.points);
+    ctx.stroke();
+
+    // Właściwa kolej
+    ctx.beginPath();
+    ctx.lineWidth = 0.4 * scale;
+    ctx.strokeStyle = "#666666";
+    drawPath(railway.points);
+    ctx.stroke();
+    
+    // Kreski na torach
+    ctx.beginPath();
+    ctx.setLineDash([0.4*scale, 0.4*scale]);
+    ctx.lineWidth = 0.2 * scale;
+    ctx.strokeStyle = "#FFFFFF";
+    drawPath(railway.points);
+    ctx.stroke();
+  }
 }
 
 // Dodaj helper do rysowania ścieżki
