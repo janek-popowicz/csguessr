@@ -11,6 +11,9 @@ let isDragging = false;
 let lastX, lastY;
 let isAnimationScheduled = false;
 
+let waterAreas = [];  // Tablica na obszary wodne
+let waterRelations = []; // Tablica na relacje wody
+let waterWays = new Map(); // Mapa do przechowywania water ways przed przetworzeniem ich do relations
 
 function resizeCanvas() {
   const padding = 40; // 20px padding z każdej strony
@@ -28,6 +31,7 @@ fetch('/map.osm')
     const parser = new DOMParser();
     const xml = parser.parseFromString(xmlText, "application/xml");
 
+    // Najpierw zbierz wszystkie node'y
     xml.querySelectorAll("node").forEach(node => {
       const id = node.getAttribute("id");
       const lat = parseFloat(node.getAttribute("lat"));
@@ -35,59 +39,151 @@ fetch('/map.osm')
       nodes[id] = { lat, lon };
     });
 
+    // Najpierw zbierzmy wszystkie way'e które są częścią relacji wody
+    let waterRelationWays = new Set();
+    xml.querySelectorAll("relation").forEach(relation => {
+      const tags = Array.from(relation.querySelectorAll("tag"));
+      const isWaterMultipolygon = tags.some(tag => 
+        tag.getAttribute("k") === "natural" && 
+        tag.getAttribute("v") === "water"
+      ) && tags.some(tag => 
+        tag.getAttribute("k") === "type" && 
+        tag.getAttribute("v") === "multipolygon"
+      );
+
+      if (isWaterMultipolygon) {
+        const members = Array.from(relation.querySelectorAll("member"));
+        members.forEach(member => {
+          waterRelationWays.add(member.getAttribute("ref"));
+        });
+      }
+    });
+
+    // Potem parsuj ways
     xml.querySelectorAll("way").forEach(way => {
+      const id = way.getAttribute("id");
       const tags = Array.from(way.querySelectorAll("tag"));
       
+      const nds = Array.from(way.querySelectorAll("nd"))
+        .map(nd => nodes[nd.getAttribute("ref")])
+        .filter(Boolean);
+
+      if (nds.length < 2) return;
+
+      // Sprawdź czy to woda albo część relacji wody
+      const isWater = tags.some(tag => 
+        tag.getAttribute("k") === "natural" && 
+        tag.getAttribute("v") === "water"
+      );
+
+      if (isWater || waterRelationWays.has(id)) {
+        console.log("Dodaję water way:", id, "punktów:", nds.length, 
+                    isWater ? "(tag water)" : "(część relacji)");
+        waterWays.set(id, nds);
+        // Nie używamy return, żeby punkty były uwzględnione w bounds
+      }
+
       // Sprawdź, czy nie jest to trasa promowa lub linia energetyczna
       const shouldIgnore = tags.some(tag => 
         (tag.getAttribute("k") === "seamark:type" && tag.getAttribute("v") === "ferry_route") ||
         (tag.getAttribute("k") === "power" && tag.getAttribute("v") === "line")
       );
 
-      // Dodaj do ways tylko jeśli nie powinno być ignorowane
-      if (!shouldIgnore) {
-        const nds = Array.from(way.querySelectorAll("nd"))
-          .map(nd => nodes[nd.getAttribute("ref")])
-          .filter(Boolean);
-        
-        if (nds.length >= 2) {
-          // Sprawdź czy to linia kolejowa lub droga
-          const isRailway = tags.some(tag => 
-            tag.getAttribute("k") === "railway" &&
-            (tag.getAttribute("v") === "rail" || tag.getAttribute("v") === "tram" || tag.getAttribute("v") === "subway")
-          );
-          if (isRailway) {
-            // Znajdź tag railway aby pobrać jego wartość (rail/tram/subway)
-            const railwayTag = tags.find(tag => tag.getAttribute("k") === "railway");
-            ways.push({
-              points: nds,
-              type: "railway",
-              mode: railwayTag ? railwayTag.getAttribute("v") : "rail"
-            });
-            return;
-          };
-          const isRoad = tags.some(tag => 
-            tag.getAttribute("k") === "maxspeed" // to jest głupie ale highway oznacza ścieżki dla pieszych
-            
-          );
-          let maxSpeed = 30; // domyślna wartość
-          if (isRoad) {
-            const speedTag = tags.find(tag => tag.getAttribute("k") === "maxspeed");
-            if (speedTag) {
-              const speed = parseInt(speedTag.getAttribute("v"), 10);
-              if (speed > 0) maxSpeed = speed;
-            }
-          }
+      // Dodaj do ways tylko jeśli nie powinno być ignorowane i nie jest wodą
+      if (!shouldIgnore && !isWater) {
+        // Sprawdź czy to linia kolejowa lub droga
+        const isRailway = tags.some(tag => 
+          tag.getAttribute("k") === "railway" &&
+          (tag.getAttribute("v") === "rail" || tag.getAttribute("v") === "tram" || tag.getAttribute("v") === "subway")
+        );
+        if (isRailway) {
+          // Znajdź tag railway aby pobrać jego wartość (rail/tram/subway)
+          const railwayTag = tags.find(tag => tag.getAttribute("k") === "railway");
           ways.push({
             points: nds,
-            type: isRailway ? 'railway' : (isRoad ? 'road' : 'regular'),
-            maxSpeed: isRoad ? maxSpeed : 0
+            type: "railway",
+            mode: railwayTag ? railwayTag.getAttribute("v") : "rail"
           });
-          // Jeśli to droga, sprawdź maxspeed
-      
-      
+          return;
+        };
+        const isRoad = tags.some(tag => 
+          tag.getAttribute("k") === "maxspeed" // to jest głupie ale highway oznacza ścieżki dla pieszych
           
-          
+        );
+        let maxSpeed = 30; // domyślna wartość
+        if (isRoad) {
+          const speedTag = tags.find(tag => tag.getAttribute("k") === "maxspeed");
+          if (speedTag) {
+            const speed = parseInt(speedTag.getAttribute("v"), 10);
+            if (speed > 0) maxSpeed = speed;
+          }
+        }
+        ways.push({
+          points: nds,
+          type: isRailway ? 'railway' : (isRoad ? 'road' : 'regular'),
+          maxSpeed: isRoad ? maxSpeed : 0
+        });
+        // Jeśli to droga, sprawdź maxspeed
+    
+    
+        
+      }
+    });
+
+    // Po dodaniu way'ów wodnych, przed parsowaniem relacji, dodaj:
+    console.log("Dostępne water ways:", Array.from(waterWays.keys()));
+
+    // Parsuj relacje wody
+    xml.querySelectorAll("relation").forEach(relation => {
+      const tags = Array.from(relation.querySelectorAll("tag"));
+      const isWaterMultipolygon = tags.some(tag => 
+        tag.getAttribute("k") === "natural" && 
+        tag.getAttribute("v") === "water"
+      ) && tags.some(tag => 
+        tag.getAttribute("k") === "type" && 
+        tag.getAttribute("v") === "multipolygon"
+      );
+
+      if (isWaterMultipolygon) {
+        console.log("Znaleziono water multipolygon:", relation.getAttribute("id"));
+        const members = Array.from(relation.querySelectorAll("member"));
+        
+        // Debug members
+        console.log("Members:", members.map(m => ({
+          ref: m.getAttribute("ref"),
+          role: m.getAttribute("role")
+        })));
+
+        const outer = members
+          .filter(m => m.getAttribute("role") === "outer")
+          .map(m => {
+            const ref = m.getAttribute("ref");
+            const wayPoints = waterWays.get(ref);
+            console.log("Szukam outer way:", ref, "znaleziono punktów:", wayPoints?.length);
+            return wayPoints;
+          })
+          .filter(Boolean);
+        
+        const inner = members
+          .filter(m => m.getAttribute("role") === "inner")
+          .map(m => {
+            const ref = m.getAttribute("ref");
+            const wayPoints = waterWays.get(ref);
+            console.log("Szukam inner way:", ref, "znaleziono punktów:", wayPoints?.length);
+            return wayPoints;
+          })
+          .filter(Boolean);
+
+        console.log("Outer ways:", outer.length, "Inner ways:", inner.length);
+
+        if (outer.length > 0) {
+          waterAreas.push({
+            outer: outer,
+            inner: inner,
+            id: relation.getAttribute("id"),
+            type: 'multipolygon'
+          });
+          console.log("Dodano obszar wodny:", relation.getAttribute("id"));
         }
       }
     });
@@ -122,6 +218,47 @@ function requestDraw() {
 function draw() {
   isAnimationScheduled = false;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Najpierw rysuj wodę
+  for (const area of waterAreas) {
+    if (area.type === 'multipolygon') {
+      ctx.fillStyle = "#aad3df";
+      
+      // Reset line dash przed rysowaniem wody
+      ctx.setLineDash([]);
+      
+      // Rozpocznij nową ścieżkę dla całego multipoligonu
+      ctx.beginPath();
+      
+      // Najpierw rysuj outer ways
+      for (const points of area.outer) {
+        points.forEach((p, i) => {
+          const [x, y] = toXY(p);
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.closePath();
+      }
+
+      // Teraz rysuj inner ways (wyspy) w przeciwnym kierunku
+      for (const points of area.inner) {
+        points.forEach((p, i) => {
+          const [x, y] = toXY(p);
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.closePath();
+      }
+
+      // Wypełnij całość używając 'evenodd' lub 'nonzero' rule
+      ctx.fill('evenodd');
+      
+      // Rysuj kontury
+      ctx.lineWidth = 1 * scale;
+      ctx.strokeStyle = "#66b8d3";
+      ctx.stroke();
+    }
+  }
 
   // Najpierw rysuj wszystko oprócz kolei
   for (const way of ways) {
