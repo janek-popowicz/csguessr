@@ -1,6 +1,21 @@
 const canvas = document.getElementById("map");
 const ctx = canvas.getContext("2d");
 
+const AMENITY_ICONS = {
+  'hospital': '🏥',
+  'police': '👮',
+  'fire_station': '🚒',
+  'school': '🏫',
+  'university': '🎓',
+  'library': '📚',
+  'pharmacy': '💊',
+  'restaurant': '🍽️',
+  'cafe': '☕',
+  'parking': '🅿️',
+  'bank': '🏦',
+  'post_office': '📫'
+};
+
 let ways = [];  // zostaw dla kompatybilności wstecznej
 let roads = {
   regular: [],
@@ -457,9 +472,8 @@ function draw() {
     ctx.stroke();
   }
 
-  // Rysuj amenities
-  ctx.fillStyle = "#f2d4c8";  // Kolor do zmiany
   for (const building of buildings.amenities) {
+    ctx.fillStyle = "#f2d4c8";  // Kolor wypełnienia
     ctx.beginPath();
     drawPath(building.points);
     ctx.closePath();
@@ -469,6 +483,26 @@ function draw() {
     ctx.lineWidth = 0.1 * scale;
     ctx.strokeStyle = "#666666";
     ctx.stroke();
+    if (scale > 3 && building.amenityType) {
+      // Oblicz środek poligonu
+      const center = {
+      lat: building.points.reduce((sum, p) => sum + p.lat, 0) / building.points.length,
+      lon: building.points.reduce((sum, p) => sum + p.lon, 0) / building.points.length
+      };
+      const [x, y] = toXY(center);
+      // Dobierz ikonę na podstawie typu amenity
+      const icon = AMENITY_ICONS[building.amenityType] || '🏢';
+      
+      // Ustaw rozmiar czcionki dla ikony - skalowany ze zoomem, ale z limitem
+      const iconSize = Math.max(1*scale, 10);
+      ctx.font = `${iconSize}px Arial`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      
+      // Narysuj ikonę
+      ctx.fillStyle = "#000000";
+      ctx.fillText(icon, x, y);
+    }
   }
 
   
