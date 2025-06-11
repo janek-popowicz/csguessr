@@ -1,26 +1,25 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Mapa Urblin</title>
-  <style>
-    body {
-      margin: 0;
-      padding: 0px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-    }
-    canvas { 
-      border: 1px solid black; 
-      cursor: grab;
-      max-width: 100%;
-      max-height: 100vh;
-    }
-  </style>
+  <title>CSGuessr</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <canvas id="map"></canvas>
+  <div id="main-view">
+    <!-- Main game view (background image) -->
+  </div>
+
+  <div id="overlay-controls" class="overlay">
+    <button id="skibidi">skibidi</button>
+  </div>
+
+  <div id="map-container" class="overlay">
+    <canvas id="map"></canvas>
+    <button id="guess-button">Make a guess</button>
+  </div>
+
+  <script src="location.js"></script>
   <script src="map_viewer.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>

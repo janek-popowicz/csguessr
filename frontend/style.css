@@ -1,0 +1,79 @@
+body {
+    margin: 0;
+    padding: 0;
+    height: 100vh;
+    overflow: hidden;
+    position: relative;
+}
+
+#controls {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 50px;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#main-view {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: black;
+}
+
+#main-view img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.overlay {
+    position: fixed;
+    background-color: rgba(255, 255, 255, 0.9);
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+#overlay-controls {
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    height: 50px;
+    min-width: 300px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#map-container {
+    bottom: 20px;
+    right: 20px;
+    width: 300px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: all 0.3s ease;
+}
+
+#map-container:hover {
+    width: 600px;
+}
+
+#map { 
+    width: 100%;
+    aspect-ratio: 1;  /* Zawsze kwadratowy */
+    height: auto;     /* Wysokość dostosuje się do szerokości */
+    border-radius: 8px;
+    cursor: grab;
+    background-color: white;
+    transition: all 0.3s ease;
+}

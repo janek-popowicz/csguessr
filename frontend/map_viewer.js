@@ -70,13 +70,23 @@ let buildings = {
 let suburbs = [];
 
 function resizeCanvas() {
-  const padding = 40; // 20px padding z każdej strony
-  const availableWidth = window.innerWidth - padding;
-  const availableHeight = window.innerHeight - padding;
-  const size = Math.min(availableWidth, availableHeight);
-  
-  canvas.width = size;
-  canvas.height = size;
+    const mapContainer = document.getElementById('map-container');
+    const width = mapContainer.clientWidth - 20;
+    
+    // Uwzględnij pixel ratio
+    const pixelRatio = window.devicePixelRatio || 1;
+    
+    canvas.width = width * pixelRatio;
+    canvas.height = width * pixelRatio;
+    
+    // Ustaw rozmiar wyświetlania
+    canvas.style.width = width + 'px';
+    canvas.style.height = width + 'px';
+    
+    // Dostosuj kontekst
+    ctx.scale(pixelRatio, pixelRatio);
+    
+    requestDraw();
 }
 
 fetch('/map.osm')
@@ -383,9 +393,14 @@ function requestDraw() {
 }
 
 function draw() {
-  isAnimationScheduled = false;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
+    isAnimationScheduled = false;
+    
+    // Wyczyść cały canvas przed rysowaniem
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    
   // 1. Najpierw rysuj wodę
   for (const area of waterAreas) {
     if (area.type === 'multipolygon') {
@@ -782,30 +797,33 @@ const MIN_ZOOM = 1;
 
 // Zmodyfikuj event listener dla wheel
 canvas.addEventListener("wheel", (e) => {
-  e.preventDefault();
-  
-  const zoomIntensity = 0.1;
-  const zoom = e.deltaY < 0 ? 1 + zoomIntensity : 1 - zoomIntensity;
-  
-  // Sprawdź czy nowy scale nie przekroczy MAX_ZOOM
-  const newScale = scale * zoom;
-  if (newScale > MAX_ZOOM || newScale < MIN_ZOOM) {
-    return; // Przerwij jeśli przekraczamy maksymalny zoom
-  }
-  
-  const rect = canvas.getBoundingClientRect();
-  const mouseX = e.clientX - rect.left;
-  const mouseY = e.clientY - rect.top;
+    e.preventDefault();
+    
+    const zoomIntensity = 0.2; // Zwiększ intensywność zooma
+    const zoom = e.deltaY < 0 ? 1 + zoomIntensity : 1 - zoomIntensity;
+    
+    const newScale = scale * zoom;
+    if (newScale > MAX_ZOOM || newScale < MIN_ZOOM) {
+        return;
+    }
+    
+    // Popraw obliczanie pozycji myszy
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
 
-  const mapX = (mouseX - offsetX) / scale;
-  const mapY = (mouseY - offsetY) / scale;
+    // Oblicz pozycję przed zoomem
+    const beforeZoomX = (mouseX - offsetX) / scale;
+    const beforeZoomY = (mouseY - offsetY) / scale;
 
-  scale = newScale;
-  
-  offsetX = mouseX - mapX * scale;
-  offsetY = mouseY - mapY * scale;
-  
-  requestDraw();
+    // Zastosuj nowy zoom
+    scale = newScale;
+
+    // Oblicz nowy offset aby zachować pozycję pod kursorem
+    offsetX = mouseX - beforeZoomX * scale;
+    offsetY = mouseY - beforeZoomY * scale;
+    
+    requestDraw();
 });
 
 window.addEventListener('resize', resizeCanvas);
