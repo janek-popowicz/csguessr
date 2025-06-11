@@ -427,6 +427,7 @@ function draw() {
     }
   }
 
+  if (scale > 3) {
   // 2. Rysuj budynki
   ctx.setLineDash([]);
 
@@ -503,7 +504,7 @@ function draw() {
       ctx.fillStyle = "#000000";
       ctx.fillText(icon, x, y);
     }
-  }
+  }}
 
   
 
@@ -560,32 +561,38 @@ function draw() {
 
   // Drogi normalne
   ctx.setLineDash([]); // Resetuj linię przerywaną
-  for (const road of roads.regular) {
-    let width;
-    // Dynamiczne przydzielanie kolorów na podstawie prędkości
-    let roadColor;
-    if (road.maxSpeed <= 30) {
-      roadColor = "#f7fabe"; // żółty
-      width = 0.2 * road.lanes; // bazowa szerokość * liczba pasów
-    } else if (road.maxSpeed <= 40) {
-      roadColor = "#f7fabe"; // żółty
-      width = 0.2 * road.lanes;
-    } else if (road.maxSpeed <= 95) {
-      roadColor = "#fcd5a3"; // pomarańczowy
-      width = 0.2 * road.lanes;
-    } else {
-      roadColor = "#e891a1"; // czerwony
-      width = 0.2 * road.lanes;
-    }
-    // Fill
-    ctx.beginPath();
-    ctx.lineWidth = width * scale;
-    ctx.strokeStyle = roadColor;
-    drawPath(road.points);
-    ctx.stroke();
+for (const road of roads.regular) {
+  let width;
+  let roadColor;
+  
+  // Najpierw sprawdź prędkość i ustaw kolory
+  if (road.maxSpeed <= 30) {
+    // Małe drogi rysuj tylko przy dużym przybliżeniu
+    if (scale <= 5) continue;
+    roadColor = "#f7fabe"; // żółty
+    width = 0.2 * road.lanes;
+  } else if (road.maxSpeed <= 40) {
+    // Również małe drogi
+    if (scale <= 5) continue;
+    roadColor = "#f7fabe"; // żółty
+    width = 0.2 * road.lanes;
+  } else if (road.maxSpeed <= 95) {
+    roadColor = "#fcd5a3"; // pomarańczowy
+    width = 0.2 * road.lanes;
+  } else {
+    roadColor = "#e891a1"; // czerwony
+    width = 0.2 * road.lanes;
   }
 
-  // Zwykłe koleje bez tramwajów
+  // Rysuj drogę
+  ctx.beginPath();
+  ctx.lineWidth = width * scale;
+  ctx.strokeStyle = roadColor;
+  drawPath(road.points);
+  ctx.stroke();
+}
+
+// Zwykłe koleje bez tramwajów
   for (const mode of ['subway', 'rail']) {
     for (const railway of railways[mode].regular) {
       ctx.beginPath();
@@ -609,6 +616,7 @@ function draw() {
     }
   }
 
+  if (scale > 12) {
   // Teraz ścieżki
   ctx.setLineDash([0.1*scale, 0.1*scale]);
   ctx.lineWidth = 0.1 * scale;
@@ -618,7 +626,7 @@ function draw() {
     drawPath(footway.points);
     ctx.stroke();
   }
-
+  }
 
 
   ctx.setLineDash([]); // Resetuj linię przerywaną przed rysowaniem mostów
@@ -661,6 +669,8 @@ function draw() {
     ctx.stroke();
   }
 
+  // Tramwaje
+  if (scale > 4) {
   for (const railway of railways.tram.regular) {
       ctx.beginPath();
       ctx.lineWidth = 0.2 * scale;
@@ -668,7 +678,7 @@ function draw() {
       drawPath(railway.points);
       ctx.stroke();
       }
-    
+  }
 
   
   // Na końcu mosty kolejowe
