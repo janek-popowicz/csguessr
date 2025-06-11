@@ -51,6 +51,9 @@ let buildings = {
   parks: []          // parks and leisure areas
 };
 
+// Na początku pliku, dodaj strukturę na dzielnice
+let suburbs = [];
+
 function resizeCanvas() {
   const padding = 40; // 20px padding z każdej strony
   const availableWidth = window.innerWidth - padding;
@@ -73,6 +76,24 @@ fetch('/map.osm')
       const lat = parseFloat(node.getAttribute("lat"));
       const lon = parseFloat(node.getAttribute("lon"));
       nodes[id] = { lat, lon };
+
+      // Sprawdź czy to dzielnica
+      const tags = Array.from(node.querySelectorAll("tag"));
+      const isSuburb = tags.some(tag => 
+        tag.getAttribute("k") === "place" && 
+        tag.getAttribute("v") === "suburb"
+      );
+
+      if (isSuburb) {
+        const nameTag = tags.find(tag => tag.getAttribute("k") === "name");
+        if (nameTag) {
+          suburbs.push({
+            lat,
+            lon,
+            name: nameTag.getAttribute("v")
+          });
+        }
+      }
     });
 
     // Najpierw zbierzmy wszystkie way'e które są częścią relacji wody
@@ -655,6 +676,34 @@ function draw() {
         ctx.stroke();
       }
     }
+  }
+
+  // Rysuj nazwy dzielnic na samym końcu
+  const fontSize = scale > 5 ? 2*scale : 10;
+ctx.font = `${fontSize}px Calibri`;
+ctx.fillStyle = "#000000";
+ctx.textAlign = "center";
+ctx.textBaseline = "middle";
+
+  for (const suburb of suburbs) {
+    const [x, y] = toXY(suburb);
+    
+    // Dodaj białe tło pod tekstem dla lepszej czytelności
+    const text = suburb.name;
+    // const metrics = ctx.measureText(text);
+    // const padding = 0.2 * scale;
+    
+    // ctx.fillStyle = "rgba(255, 255, 255, 0)";
+    // ctx.fillRect(
+    //   x - metrics.width/2 - padding,
+    //   y - 0.4 * scale - padding,
+    //   metrics.width + 2*padding,
+    //   0.8 * scale + 2*padding
+    // );
+    
+    // Narysuj tekst
+    ctx.fillStyle = "#000000";
+    ctx.fillText(text, x, y);
   }
 }
 
