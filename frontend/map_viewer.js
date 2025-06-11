@@ -47,7 +47,8 @@ let buildings = {
     residential: [],  // zwykłe budynki mieszkalne
     industrial: []    // budynki przemysłowe
   },
-  amenities: []       // budynki użyteczności publicznej
+  amenities: [],      // budynki użyteczności publicznej
+  parks: []          // parks and leisure areas
 };
 
 function resizeCanvas() {
@@ -108,11 +109,20 @@ fetch('/map.osm')
       const isLanduse = tags.some(tag => tag.getAttribute("k") === "landuse");
       const isOffice = tags.some(tag => tag.getAttribute("k") === "office");
       const isAmenity = tags.some(tag => tag.getAttribute("k") === "amenity");
+      const isPark = tags.some(tag => 
+        tag.getAttribute("k") === "leisure" && 
+        tag.getAttribute("v") === "park"
+      );
 
-      if (isLanduse || isOffice || isAmenity) {
+      if (isLanduse || isOffice || isAmenity || isPark) {
         // Sprawdź czy way jest zamknięty (pierwszy i ostatni punkt są te same)
         if (nds[0].lat === nds[nds.length-1].lat && nds[0].lon === nds[nds.length-1].lon) {
-          if (isLanduse || isOffice) {
+          if (isPark) {
+            buildings.parks.push({
+              points: nds,
+              type: 'park'
+            });
+          } else if (isLanduse || isOffice) {
             let landUseType;
             if (isOffice) {
               landUseType = "residential"; // Traktuj office jak residential
@@ -294,7 +304,6 @@ fetch('/map.osm')
       ...railways.rail.tunnel.flatMap(way => way.points),
       ...railways.tram.regular.flatMap(way => way.points),
       ...railways.tram.bridge.flatMap(way => way.points),
-      ...railways.tram.tunnel.flatMap(way => way.points),
       ...railways.subway.regular.flatMap(way => way.points),
       ...railways.subway.bridge.flatMap(way => way.points),
       ...railways.subway.tunnel.flatMap(way => way.points),
@@ -376,6 +385,20 @@ function draw() {
   // 2. Rysuj budynki
   ctx.setLineDash([]);
 
+  // Rysuj parki
+  ctx.fillStyle = "#90EE90";  // Jasny zielony kolor
+  for (const park of buildings.parks) {
+    ctx.beginPath();
+    drawPath(park.points);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Kontur
+    ctx.lineWidth = 0.1 * scale;
+    ctx.strokeStyle = "#228B22";  // Ciemniejszy zielony na kontur
+    ctx.stroke();
+  }
+
   // Rysuj landuse residential
   ctx.fillStyle = "#e8d8c1";  // Kolor do zmiany
   for (const building of buildings.landuse.residential) {
@@ -417,6 +440,8 @@ function draw() {
     ctx.strokeStyle = "#666666";
     ctx.stroke();
   }
+
+  
 
 
   // Tunele kolejowe
