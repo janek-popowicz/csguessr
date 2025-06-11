@@ -767,11 +767,21 @@ canvas.addEventListener("mousemove", e => {
     requestDraw();
   }
 });
+const MAX_ZOOM = 20;
+const MIN_ZOOM = 1;
+
+// Zmodyfikuj event listener dla wheel
 canvas.addEventListener("wheel", (e) => {
   e.preventDefault();
   
   const zoomIntensity = 0.1;
   const zoom = e.deltaY < 0 ? 1 + zoomIntensity : 1 - zoomIntensity;
+  
+  // Sprawdź czy nowy scale nie przekroczy MAX_ZOOM
+  const newScale = scale * zoom;
+  if (newScale > MAX_ZOOM || newScale < MIN_ZOOM) {
+    return; // Przerwij jeśli przekraczamy maksymalny zoom
+  }
   
   const rect = canvas.getBoundingClientRect();
   const mouseX = e.clientX - rect.left;
@@ -780,7 +790,7 @@ canvas.addEventListener("wheel", (e) => {
   const mapX = (mouseX - offsetX) / scale;
   const mapY = (mouseY - offsetY) / scale;
 
-  scale *= zoom;
+  scale = newScale;
   
   offsetX = mouseX - mapX * scale;
   offsetY = mouseY - mapY * scale;
