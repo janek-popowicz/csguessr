@@ -213,10 +213,18 @@ fetch('/map.osm')
         const isRoad = tags.some(tag => tag.getAttribute("k") === "maxspeed");
         if (isRoad) {
           let maxSpeed = 30;
+          let lanes = 2; // domyślna liczba pasów
+          
           const speedTag = tags.find(tag => tag.getAttribute("k") === "maxspeed");
           if (speedTag) {
             const speed = parseInt(speedTag.getAttribute("v"), 10);
             if (speed > 0) maxSpeed = speed;
+          }
+
+          const lanesTag = tags.find(tag => tag.getAttribute("k") === "lanes");
+          if (lanesTag) {
+            const numLanes = parseInt(lanesTag.getAttribute("v"), 10);
+            if (numLanes > 0) lanes = numLanes;
           }
 
           const isBridge = tags.some(tag => 
@@ -235,7 +243,8 @@ fetch('/map.osm')
           roads[category].push({
             points: nds,
             type: 'road',
-            maxSpeed: maxSpeed
+            maxSpeed: maxSpeed,
+            lanes: lanes // dodajemy informację o liczbie pasów
           });
         } else {
           regularWays.push({
@@ -471,19 +480,18 @@ function draw() {
   for (const road of roads.tunnel) {
     let width;
     let roadColor;
-    // Dynamiczne przydzielanie kolorów na podstawie prędkości
     if (road.maxSpeed <= 30) {
       roadColor = "#f7fabe"; // żółty
-      width = 0.4;
+      width = 0.2 * road.lanes; // bazowa szerokość * liczba pasów
     } else if (road.maxSpeed <= 40) {
       roadColor = "#f7fabe"; // żółty
-      width = 0.7;
+      width = 0.2 * road.lanes;
     } else if (road.maxSpeed <= 95) {
       roadColor = "#fcd5a3"; // pomarańczowy
-      width = 1;
+      width = 0.2 * road.lanes;
     } else {
       roadColor = "#e891a1"; // czerwony
-      width = 1;
+      width = 0.2 * road.lanes;
     }
 
     ctx.beginPath();
@@ -503,16 +511,16 @@ function draw() {
     let roadColor;
     if (road.maxSpeed <= 30) {
       roadColor = "#f7fabe"; // żółty
-      width = 0.4;
+      width = 0.2 * road.lanes; // bazowa szerokość * liczba pasów
     } else if (road.maxSpeed <= 40) {
       roadColor = "#f7fabe"; // żółty
-      width = 0.7;
+      width = 0.2 * road.lanes;
     } else if (road.maxSpeed <= 95) {
       roadColor = "#fcd5a3"; // pomarańczowy
-      width = 1;
+      width = 0.2 * road.lanes;
     } else {
       roadColor = "#e891a1"; // czerwony
-      width = 1;
+      width = 0.2 * road.lanes;
     }
     // Fill
     ctx.beginPath();
@@ -562,19 +570,18 @@ function draw() {
   for (const road of roads.bridge) {
     let width;
     let roadColor;
-    // Dynamiczne przydzielanie kolorów na podstawie prędkości
     if (road.maxSpeed <= 30) {
       roadColor = "#f7fabe"; // żółty
-      width = 0.4;
-    } else if (road.maxSpeed <= 40) {
+      width = 0.2 * road.lanes;
+    } else if (road.maxSpeed <= 40 && road.lanes <= 2) {
       roadColor = "#f7fabe"; // żółty
-      width = 0.7;
-    } else if (road.maxSpeed <= 95) {
+      width = 0.2 * road.lanes;
+    } else if (road.maxSpeed <= 95 || road.lanes > 2) {
       roadColor = "#fcd5a3"; // pomarańczowy
-      width = 1;
+      width = 0.2 * road.lanes;
     } else {
       roadColor = "#e891a1"; // czerwony
-      width = 1;
+      width = 0.2 * road.lanes;
     }
 
     // Cień/kontur
