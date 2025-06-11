@@ -2,6 +2,9 @@ const canvas = document.getElementById("map");
 const ctx = canvas.getContext("2d");
 let clicked_coordinates = null;
 
+// Dodaj zmienne dla punktów podsumowania
+let summaryPoints = null;
+
 const AMENITY_ICONS = {
   'hospital': '🏥',
   'police': '👮',
@@ -815,6 +818,42 @@ ctx.textBaseline = "middle";
     ctx.fillStyle = "#FF0000";
     ctx.fill();
   }
+
+  // Rysuj punkty podsumowania jeśli istnieją
+  if (summaryPoints) {
+    // Narysuj linię między punktami
+    ctx.beginPath();
+    ctx.setLineDash([5 * scale, 5 * scale]);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#333333';
+    
+    const [x1, y1] = [
+        summaryPoints.guess[0] * canvas.width * scale + offsetX,
+        summaryPoints.guess[1] * canvas.height * scale + offsetY
+    ];
+    const [x2, y2] = [
+        summaryPoints.actual[0] * canvas.width * scale + offsetX,
+        summaryPoints.actual[1] * canvas.height * scale + offsetY
+    ];
+    
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+
+    // Narysuj punkty
+    // Punkt zgadnięty (czerwony)
+    ctx.beginPath();
+    ctx.setLineDash([]);
+    ctx.arc(x1, y1, 10, 0, 2 * Math.PI);
+    ctx.fillStyle = '#FF0000';
+    ctx.fill();
+
+    // Punkt prawidłowy (zielony)
+    ctx.beginPath();
+    ctx.arc(x2, y2, 10, 0, 2 * Math.PI);
+    ctx.fillStyle = '#00FF00';
+    ctx.fill();
+  }
 }
 
 // Dodaj helper do rysowania ścieżki
@@ -898,4 +937,17 @@ window.getClickedCoordinates = function(event) {
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
     return canvasToGeo(x, y);
+};
+
+// Dodaj funkcję do zaznaczania punktów podsumowania
+window.markSummaryPoints = function(guess, actual) {
+    summaryPoints = { guess, actual };
+    clicked_coordinates = null; // Reset clicked coordinates
+    requestDraw();
+};
+
+window.resetMapState = function() {
+    clicked_coordinates = null;
+    summaryPoints = null;
+    requestDraw();
 };
