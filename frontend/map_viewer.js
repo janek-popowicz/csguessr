@@ -568,12 +568,12 @@ for (const road of roads.regular) {
   // Najpierw sprawdź prędkość i ustaw kolory
   if (road.maxSpeed <= 30) {
     // Małe drogi rysuj tylko przy dużym przybliżeniu
-    if (scale <= 5) continue;
+    if (scale <= 4) continue;
     roadColor = "#f7fabe"; // żółty
     width = 0.2 * road.lanes;
   } else if (road.maxSpeed <= 40) {
     // Również małe drogi
-    if (scale <= 5) continue;
+    if (scale <= 4) continue;
     roadColor = "#f7fabe"; // żółty
     width = 0.2 * road.lanes;
   } else if (road.maxSpeed <= 95) {
