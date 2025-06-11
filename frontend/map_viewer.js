@@ -1,5 +1,6 @@
 const canvas = document.getElementById("map");
 const ctx = canvas.getContext("2d");
+let clicked_coordinates = null;
 
 const AMENITY_ICONS = {
   'hospital': '🏥',
@@ -803,6 +804,17 @@ ctx.textBaseline = "middle";
     ctx.fillStyle = "#000000";
     ctx.fillText(text, x, y);
   }
+
+  // Rysuj pinezkę
+  if (clicked_coordinates) {
+    const [x, y] = clicked_coordinates;
+    ctx.beginPath();
+    ctx.arc(x * canvas.width * scale + offsetX, 
+            y * canvas.height * scale + offsetY, 
+            10, 0, 2 * Math.PI);
+    ctx.fillStyle = "#FF0000";
+    ctx.fill();
+  }
 }
 
 // Dodaj helper do rysowania ścieżki
@@ -874,6 +886,9 @@ function canvasToGeo(canvasX, canvasY) {
     const x = (canvasX - offsetX) / (canvas.width * scale);
     const y = (canvasY - offsetY) / (canvas.height * scale);
 
+    clicked_coordinates = [x, y];
+    // Updatuj mapę
+    requestDraw();
     return [x, y];
 }
 
@@ -882,6 +897,5 @@ window.getClickedCoordinates = function(event) {
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
-    
     return canvasToGeo(x, y);
 };

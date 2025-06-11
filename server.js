@@ -74,12 +74,14 @@ app.get('/:filename', (req, res) => {
 });
 
 function calculateScore(guessCoords, actualCoords) {
-    let score = null;
     // Prosta funkcja do obliczania dystansu między dwoma punktami
     // Można to rozbudować o bardziej zaawansowane metody
     const dx = guessCoords[0] - actualCoords[0];
     const dy = guessCoords[1] - actualCoords[1];
     const distance = (Math.sqrt(dx * dx + dy * dy)*2);
+    if (distance < 0.01) { // 5k
+      return 5000;
+    }
     // zaokrąglij score
     console.log(`Dystans: ${distance}`);
     return Math.max(Math.round(5000 - (distance * 5000)), 0);
