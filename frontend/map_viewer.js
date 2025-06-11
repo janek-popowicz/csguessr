@@ -69,49 +69,60 @@ let buildings = {
 // Na początku pliku, dodaj strukturę na dzielnice
 let suburbs = [];
 
-function resizeCanvas() {
-    const canvas = document.getElementById('map');
-    const rect = canvas.getBoundingClientRect();
+function centerMap() {
+    const mapRatio = (bounds.maxLon - bounds.minLon) / (bounds.maxLat - bounds.minLat);
+    const canvasRatio = canvas.width / canvas.height;
     
-    // Uwzględnij pixel ratio dla lepszej jakości
+    if (mapRatio > canvasRatio) {
+        scale = canvas.width / (bounds.maxLon - bounds.minLon) * 0.8;
+    } else {
+        scale = canvas.height / (bounds.maxLat - bounds.minLat) * 0.8;
+    }
+    
+    offsetX = canvas.width / 2;
+    offsetY = canvas.height / 2;
+}
+
+function resizeCanvas() {
+    const oldWidth = canvas.width;
+    const oldHeight = canvas.height;
+    const oldScale = scale;
+    const oldOffsetX = offsetX;
+    const oldOffsetY = offsetY;
+
+    // Get actual size from container
+    const rect = canvas.getBoundingClientRect();
     const pixelRatio = window.devicePixelRatio || 1;
     
-    // Ustaw rozmiar canvasu
+    // Set canvas size to match container size * pixel ratio
     canvas.width = rect.width * pixelRatio;
     canvas.height = rect.height * pixelRatio;
     
-    // Dostosuj kontekst
+    // Scale all drawing operations by pixel ratio
     ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
     
+    if (oldWidth && oldHeight) {
+        // Adjust scale and offset to maintain view position
+        const widthRatio = canvas.width / oldWidth;
+        const heightRatio = canvas.height / oldHeight;
+        
+        scale = oldScale;
+        offsetX = oldOffsetX * widthRatio;
+        offsetY = oldOffsetY * heightRatio;
+    } else {
+        centerMap();
+    }
+
     requestDraw();
 }
 
-// Dodaj obserwator zmian wielkości
-const resizeObserver = new ResizeObserver((entries) => {
-    for (const entry of entries) {
-        if (entry.target === canvas) {
-            requestAnimationFrame(resizeCanvas);
-        }
-    }
+// Remove resize observer and mutation observer
+// Instead add this event listener:
+window.addEventListener('resize', () => {
+    requestAnimationFrame(resizeCanvas);
 });
 
-// Obserwuj sam canvas, nie kontener
-resizeObserver.observe(canvas);
-
-// Dodaj też obserwator mutacji dla złapania zmian stylów
-const mutationObserver = new MutationObserver((mutations) => {
-    for (const mutation of mutations) {
-        if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
-            requestAnimationFrame(resizeCanvas);
-        }
-    }
-});
-
-mutationObserver.observe(canvas, {
-    attributes: true,
-    attributeFilter: ['style']
-});
-
+// Update CSS to use fixed dimensions instead of transitions
 function parseOSMData(xmlText) {
   console.log("Parsing OSM data...");
     const parser = new DOMParser();
@@ -856,3 +867,21 @@ canvas.addEventListener("wheel", (e) => {
 
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
+
+// Funkcja konwertująca współrzędne canvas na koordynaty geograficzne
+function canvasToGeo(canvasX, canvasY) {
+    // Odwróć obliczenia z funkcji toXY
+    const x = (canvasX - offsetX) / (canvas.width * scale);
+    const y = (canvasY - offsetY) / (canvas.height * scale);
+
+    return [x, y];
+}
+
+// Eksportuj funkcję do użycia w innych modułach
+window.getClickedCoordinates = function(event) {
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    
+    return canvasToGeo(x, y);
+};

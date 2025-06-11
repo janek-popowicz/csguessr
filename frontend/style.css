@@ -61,10 +61,10 @@ body {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    transition: all 0.1s ease;
+    
 }
 
-#map-container:hover {
+#map-container.expanded {
     width: 600px;
 }
 
@@ -73,10 +73,9 @@ body {
     height: 300px;
     border-radius: 8px;
     cursor: grab;
-    transition: all 0.1s ease;
 }
 
-#map-container:hover #map {
+#map-container.expanded #map {
     height: 600px;
 }
 
