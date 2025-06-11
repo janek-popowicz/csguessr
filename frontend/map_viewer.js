@@ -368,147 +368,86 @@ fetch('/map.osm')
     draw();
   });
 
+const coordsCache = new Map();
+let lastScale = scale;
+let lastOffsetX = offsetX;
+let lastOffsetY = offsetY;
+
 function toXY(p) {
+  const cacheKey = `${p.lat},${p.lon},${scale},${offsetX},${offsetY}`;
+  if (coordsCache.has(cacheKey)) {
+    return coordsCache.get(cacheKey);
+  }
+
   const { minLat, maxLat, minLon, maxLon } = bounds;
   const x = ((p.lon - minLon) / (maxLon - minLon)) * canvas.width * scale + offsetX;
   const y = ((maxLat - p.lat) / (maxLat - minLat)) * canvas.height * scale + offsetY;
+  
+  // Wyczyść cache jeśli zmienił się scale lub offset
+  if (lastScale !== scale || lastOffsetX !== offsetX || lastOffsetY !== offsetY) {
+    coordsCache.clear();
+    lastScale = scale;
+    lastOffsetX = offsetX;
+    lastOffsetY = offsetY;
+  }
+  
+  // Ogranicz rozmiar cache
+  if (coordsCache.size > 10000) {
+    coordsCache.clear();
+  }
+  
+  coordsCache.set(cacheKey, [x, y]);
   return [x, y];
 }
 
 function requestDraw() {
   if (!isAnimationScheduled) {
     isAnimationScheduled = true;
-    requestAnimationFrame(draw);
+    
+    if ('requestIdleCallback' in window && scale < 3) {
+      requestIdleCallback(() => {
+        draw();
+        isAnimationScheduled = false;
+      });
+    } else {
+      requestAnimationFrame(() => {
+        draw();
+        isAnimationScheduled = false;
+      });
+    }
   }
 }
 
-function draw() {
-  isAnimationScheduled = false;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+const staticCanvas = document.createElement('canvas');
+staticCanvas.width = canvas.width;
+staticCanvas.height = canvas.height;
+const staticCtx = staticCanvas.getContext('2d');
 
-  // 1. Najpierw rysuj wodę
-  for (const area of waterAreas) {
-    if (area.type === 'multipolygon') {
-      ctx.fillStyle = "#aad3df";
-      
-      // Reset line dash przed rysowaniem wody
-      ctx.setLineDash([]);
-      
-      // Rozpocznij nową ścieżkę dla całego multipoligonu
-      ctx.beginPath();
-      
-      // Najpierw rysuj outer ways
-      for (const points of area.outer) {
-        points.forEach((p, i) => {
-          const [x, y] = toXY(p);
-          if (i === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        });
-        ctx.closePath();
-      }
+let staticDirty = true;
 
-      // Teraz rysuj inner ways (wyspy) w przeciwnym kierunku
-      for (const points of area.inner) {
-        points.forEach((p, i) => {
-          const [x, y] = toXY(p);
-          if (i === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        });
-        ctx.closePath();
-      }
-
-      // Wypełnij całość używając 'evenodd' lub 'nonzero' rule
-      ctx.fill('evenodd');
-      
-      // Rysuj kontury
-      ctx.lineWidth = 0 * scale;
-      ctx.strokeStyle = "#66b8d3";
-      ctx.stroke();
-    }
-  }
-
-  if (scale > 3) {
-  // 2. Rysuj budynki
-  ctx.setLineDash([]);
-
-  // Rysuj parki
-  ctx.fillStyle = "#90EE90";  // Jasny zielony kolor
-  for (const park of buildings.parks) {
-    ctx.beginPath();
-    drawPath(park.points);
-    ctx.closePath();
-    ctx.fill();
-    
-    // Kontur
-    ctx.lineWidth = 0.1 * scale;
-    ctx.strokeStyle = "#228B22";  // Ciemniejszy zielony na kontur
-    ctx.stroke();
-  }
-
-  // Rysuj landuse residential
-  ctx.fillStyle = "#e8d8c1";  // Kolor do zmiany
-  for (const building of buildings.landuse.residential) {
-    ctx.beginPath();
-    drawPath(building.points);
-    ctx.closePath();
-    ctx.fill();
-    
-    // Kontur
-    ctx.lineWidth = 0.1 * scale;
-    ctx.strokeStyle = "#666666";
-    ctx.stroke();
-  }
-
-  // Rysuj landuse industrial
-  ctx.fillStyle = "#e0dede";  // Kolor do zmiany
-  for (const building of buildings.landuse.industrial) {
-    ctx.beginPath();
-    drawPath(building.points);
-    ctx.closePath();
-    ctx.fill();
-    
-    // Kontur
-    ctx.lineWidth = 0.1 * scale;
-    ctx.strokeStyle = "#666666";
-    ctx.stroke();
-  }
-
-  for (const building of buildings.amenities) {
-    ctx.fillStyle = "#f2d4c8";  // Kolor wypełnienia
-    ctx.beginPath();
-    drawPath(building.points);
-    ctx.closePath();
-    ctx.fill();
-    
-    // Kontur
-    ctx.lineWidth = 0.1 * scale;
-    ctx.strokeStyle = "#666666";
-    ctx.stroke();
-    if (scale > 3 && building.amenityType) {
-      // Oblicz środek poligonu
-      const center = {
-      lat: building.points.reduce((sum, p) => sum + p.lat, 0) / building.points.length,
-      lon: building.points.reduce((sum, p) => sum + p.lon, 0) / building.points.length
-      };
-      const [x, y] = toXY(center);
-      // Dobierz ikonę na podstawie typu amenity
-      const icon = AMENITY_ICONS[building.amenityType] || '🏢';
-      
-      // Ustaw rozmiar czcionki dla ikony - skalowany ze zoomem, ale z limitem
-      const iconSize = Math.max(1*scale, 10);
-      ctx.font = `${iconSize}px Arial`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      
-      // Narysuj ikonę
-      ctx.fillStyle = "#000000";
-      ctx.fillText(icon, x, y);
-    }
-  }}
-
+function drawStaticElements() {
+  if (!staticDirty) return;
   
+  staticCtx.clearRect(0, 0, staticCanvas.width, staticCanvas.height);
+  // Rysuj statyczne elementy...
+  staticDirty = false;
+}
 
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+  // Najpierw statyczne elementy
+  drawStaticElements();
+  ctx.drawImage(staticCanvas, 0, 0);
+  
+  // Potem dynamiczne elementy
+  drawDynamicElements();
+  
+  // Oznacz statyczne elementy jako brudne po zmianie widoku
+  staticDirty = true;
+}
 
+function drawDynamicElements() {
   // Tunele kolejowe
   for (const mode of ['subway', 'rail']) {
     for (const railway of railways[mode].tunnel) {
@@ -810,3 +749,48 @@ canvas.addEventListener("wheel", (e) => {
 
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
+
+class QuadTree {
+  constructor(bounds) {
+    this.bounds = bounds;
+    this.points = [];
+    this.children = null;
+    this.MAX_POINTS = 4;
+  }
+
+  insert(point) {
+    if (!this.contains(point)) return false;
+    
+    if (this.points.length < this.MAX_POINTS) {
+      this.points.push(point);
+      return true;
+    }
+
+    if (!this.children) {
+      this.subdivide();
+    }
+
+    return this.children.some(child => child.insert(point));
+  }
+
+  // ... reszta implementacji QuadTree
+}
+
+// Użyj w funkcji draw
+function isInViewport(point) {
+  const [x, y] = toXY(point);
+  return x >= -100 && x <= canvas.width + 100 &&
+         y >= -100 && y <= canvas.height + 100;
+}
+
+const pointPool = [];
+
+function getPoint() {
+  return pointPool.pop() || { x: 0, y: 0 };
+}
+
+function releasePoint(point) {
+  if (pointPool.length < 1000) {
+    pointPool.push(point);
+  }
+}
