@@ -70,28 +70,50 @@ let buildings = {
 let suburbs = [];
 
 function resizeCanvas() {
-    const mapContainer = document.getElementById('map-container');
-    const width = mapContainer.clientWidth - 20;
+    const canvas = document.getElementById('map');
+    const rect = canvas.getBoundingClientRect();
     
-    // Uwzględnij pixel ratio
+    // Uwzględnij pixel ratio dla lepszej jakości
     const pixelRatio = window.devicePixelRatio || 1;
     
-    canvas.width = width * pixelRatio;
-    canvas.height = width * pixelRatio;
-    
-    // Ustaw rozmiar wyświetlania
-    canvas.style.width = width + 'px';
-    canvas.style.height = width + 'px';
+    // Ustaw rozmiar canvasu
+    canvas.width = rect.width * pixelRatio;
+    canvas.height = rect.height * pixelRatio;
     
     // Dostosuj kontekst
-    ctx.scale(pixelRatio, pixelRatio);
+    ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
     
     requestDraw();
 }
 
-fetch('/map.osm')
-  .then(res => res.text())
-  .then(xmlText => {
+// Dodaj obserwator zmian wielkości
+const resizeObserver = new ResizeObserver((entries) => {
+    for (const entry of entries) {
+        if (entry.target === canvas) {
+            requestAnimationFrame(resizeCanvas);
+        }
+    }
+});
+
+// Obserwuj sam canvas, nie kontener
+resizeObserver.observe(canvas);
+
+// Dodaj też obserwator mutacji dla złapania zmian stylów
+const mutationObserver = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+        if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+            requestAnimationFrame(resizeCanvas);
+        }
+    }
+});
+
+mutationObserver.observe(canvas, {
+    attributes: true,
+    attributeFilter: ['style']
+});
+
+function parseOSMData(xmlText) {
+  console.log("Parsing OSM data...");
     const parser = new DOMParser();
     const xml = parser.parseFromString(xmlText, "application/xml");
 
@@ -374,9 +396,15 @@ fetch('/map.osm')
       minLon: Math.min(...lons),
       maxLon: Math.max(...lons),
     };
+}
 
-    draw();
-  });
+// Zmień fetch na:
+fetch('/map.osm')
+    .then(res => res.text())
+    .then(xmlText => {
+        parseOSMData(xmlText);
+        draw();
+    });
 
 function toXY(p) {
   const { minLat, maxLat, minLon, maxLon } = bounds;
