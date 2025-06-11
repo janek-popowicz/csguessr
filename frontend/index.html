@@ -10,7 +10,7 @@
   </div>
 
   <div id="overlay-controls" class="overlay">
-    <button id="skibidi">skibidi</button>
+    <button id="new-game-button">New Game</button>
   </div>
 
   <div id="map-container" class="overlay">
@@ -18,8 +18,12 @@
     <button id="guess-button">Make a guess</button>
   </div>
 
-  <script src="location.js"></script>
   <script src="map_viewer.js"></script>
+  <script type="module">
+        import { loadGameData, loadMainImage } from './location.js';
+        window.loadGameData = loadGameData;
+        window.loadMainImage = loadMainImage;
+    </script>
   <script src="script.js"></script>
 </body>
 </html>

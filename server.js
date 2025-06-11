@@ -1,36 +1,113 @@
 const express = require('express');
 const path = require('path');
+const fs = require('fs').promises;
 const app = express();
+
+async function giveGame(city, mode) {
+    try {
+        // Read all json files from the city directory
+        const cityPath = path.join(__dirname, 'resources', city);
+        const files = await fs.readdir(cityPath);
+        const jsonFiles = files.filter(file => file.endsWith('.json'));
+        
+        if (jsonFiles.length === 0) {
+            throw new Error('No locations found for this city');
+        }
+
+        // Pick a random json file
+        const randomJson = jsonFiles[Math.floor(Math.random() * jsonFiles.length)];
+        const locationData = JSON.parse(
+            await fs.readFile(path.join(cityPath, randomJson), 'utf8')
+        );
+
+        // Prepare response based on mode
+        const response = {
+            loc_id: locationData['loc.id']
+        };
+
+        if (mode === 'nmpz') {
+            // For NMPZ mode, return only one random image
+            const randomImage = locationData.images[
+                Math.floor(Math.random() * locationData.images.length)
+            ];
+            response.images = [randomImage];
+        } else if (mode === 'nm') {
+            // For NM mode, return all images
+            response.images = locationData.images;
+        }
+
+        return response;
+    } catch (error) {
+        console.error('Error in giveGame:', error);
+        throw error;
+    }
+}
 
 // Serwujemy frontend
 app.use(express.static(path.join(__dirname, 'frontend')));
 
+// Endpoint dla gry
+app.get('/get_game', async (req, res) => {
+    try {
+        const { city = 'Urblin', mode = 'nmpz' } = req.query;
+        const gameData = await giveGame(city, mode);
+        res.json(gameData);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to generate game' });
+    }
+});
+
 // Serwujemy plik .osm
 app.get('/map.osm', (req, res) => {
-  res.sendFile(path.join(__dirname, 'resources', 'Urblin', 'urblin.osm'));
+    res.sendFile(path.join(__dirname, 'resources', 'Urblin', 'urblin.osm'));
 });
 
 // Endpoint dla dowolnego obrazu
 app.get('/:filename', (req, res) => {
-  const filename = req.params.filename;
-  // Sprawdź czy to na pewno plik obrazu
-  if (filename.match(/\.(png|jpg|jpeg|gif)$/i)) {
-    res.sendFile(path.join(__dirname, 'resources', 'Urblin', filename));
-  } else {
-    res.status(400).send('Dozwolone tylko pliki obrazów');
-  }
+    const filename = req.params.filename;
+    // Sprawdź czy to na pewno plik obrazu
+    if (filename.match(/\.(png|jpg|jpeg|gif)$/i)) {
+        res.sendFile(path.join(__dirname, 'resources', 'Urblin', filename));
+    } else {
+        res.status(400).send('Dozwolone tylko pliki obrazów');
+    }
+});
+
+function calculateScore(guessCoords, actualCoords) {
+    let score = null;
+    // Prosta funkcja do obliczania dystansu między dwoma punktami
+    // Można to rozbudować o bardziej zaawansowane metody
+    const dx = guessCoords[0] - actualCoords[0];
+    const dy = guessCoords[1] - actualCoords[1];
+    const distance = (Math.sqrt(dx * dx + dy * dy)*2);
+    // zaokrąglij score
+    console.log(`Dystans: ${distance}`);
+    return Math.max(Math.round(5000 - (distance * 5000)), 0);
+}
+
+app.post('/submit_guess', express.json(), async (req, res) => {
+    try {
+        const { loc_id, coordinates } = req.body;
+        
+        // Wczytaj prawidłowe koordynaty z pliku JSON
+        const cityPath = path.join(__dirname, 'resources', 'Urblin');
+        const locationData = JSON.parse(
+            await fs.readFile(path.join(cityPath, `${loc_id}.json`), 'utf8')
+        );
+        
+        // Oblicz dystans między punktami (można dodać później)
+        const score = calculateScore(coordinates, locationData.coords);
+        
+        res.json({ 
+            score,
+            actual_coords: locationData.coords 
+        });
+    } catch (error) {
+        console.error('Error processing guess:', error);
+        res.status(500).json({ error: 'Failed to process guess' });
+    }
 });
 
 app.listen(3000, () => {
-  console.log('Serwer działa na http://localhost:3000');
-});
-
-app.get('/get_game', (req, res) => {
-  const gameData = {
-    name: 'Urblin',
-    description: 'Gra planszowa osadzona w fikcyjnym mieście Urblin.',
-    image: '/26-April-21-43-06-05.png',
-    map: '/map.osm'
-  };
-  res.json(gameData);
+    console.log('Serwer działa na http://localhost:3000');
 });
