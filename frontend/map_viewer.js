@@ -951,3 +951,7 @@ window.resetMapState = function() {
     summaryPoints = null;
     requestDraw();
 };
+
+// At the end of the file, add:
+window.parseOSMData = parseOSMData;
+window.draw = draw;

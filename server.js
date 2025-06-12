@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs').promises;
 const app = express();
+const multer = require('multer');
 
 async function giveGame(city, mode) {
     try {
@@ -107,6 +108,43 @@ app.post('/submit_guess', express.json(), async (req, res) => {
     } catch (error) {
         console.error('Error processing guess:', error);
         res.status(500).json({ error: 'Failed to process guess' });
+    }
+});
+
+// Dodaj obsługę przesyłania plików
+const storage = multer.diskStorage({
+    destination: function(req, file, cb) {
+        cb(null, path.join(__dirname, 'resources', 'Urblin'));
+    },
+    filename: function(req, file, cb) {
+        cb(null, Date.now() + '-' + file.originalname);
+    }
+});
+const upload = multer({ storage: storage });
+
+// Endpoint do dodawania nowej lokacji
+app.post('/add_location', upload.array('images'), async (req, res) => {
+    try {
+        const coordinates = JSON.parse(req.body.coordinates);
+        const images = req.files.map(file => file.filename);
+        
+        // Stwórz nowy plik JSON dla lokacji
+        const locationData = {
+            'loc.id': Date.now().toString(),
+            coords: coordinates,
+            images: images
+        };
+
+        // Zapisz plik JSON
+        await fs.writeFile(
+            path.join(__dirname, 'resources', 'Urblin', `${locationData['loc.id']}.json`),
+            JSON.stringify(locationData, null, 2)
+        );
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error adding location:', error);
+        res.status(500).json({ error: 'Failed to add location' });
     }
 });
 

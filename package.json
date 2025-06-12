@@ -12,6 +12,7 @@
   "type": "commonjs",
   "dependencies": {
     "express": "^5.1.0",
+    "multer": "^2.0.1",
     "osmtogeojson": "^2.2.0",
     "xml2js": "^0.6.2",
     "xmldom": "^0.6.0"
