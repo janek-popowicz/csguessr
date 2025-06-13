@@ -6,10 +6,8 @@ const multer = require('multer');
 
 async function giveGame(city, mode) {
     try {
-        // Declare cityPath outside the if statements
         let cityPath;
         
-        // Set cityPath based on mode
         if (mode === 'nmpz') {
             cityPath = path.join(__dirname, 'resources', city, 'nmpz');
         } else if (mode === 'nm') {

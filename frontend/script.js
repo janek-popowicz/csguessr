@@ -3,14 +3,14 @@ import { showSummary } from './summary.js';
 let currentGame = null;
 let guessCoordinates = [];
 export const CITY = 'Urblin';
-export const MODE = 'nmpz';
+export const MODE = 'nm'; // nmpz or nm
 
 async function startNewGame() {
     if (window.resetMapState) window.resetMapState();
-    const gameData = await window.loadGameData({ mode: 'nmpz', city: CITY });
+    const gameData = await window.loadGameData({ mode: MODE, city: CITY });  // Używamy stałej MODE
     if (gameData) {
         currentGame = gameData;
-        await window.loadMainImage(gameData.images[0]);
+        await window.loadMainImage(gameData.images, CITY, MODE);  // Pass the whole array
         console.log('New game started:', gameData.loc_id);
     }
 }
