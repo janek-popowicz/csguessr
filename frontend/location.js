@@ -13,13 +13,13 @@ async function loadGameData({ mode = MODE, city = CITY }) {
     }
 }
 
-async function loadMainImage(imagePath, city = 'Urblin') {
+async function loadMainImage(imagePath, city = 'Urblin', mode = MODE) {
     const mainView = document.getElementById('main-view');
     // Clear previous image if exists
     mainView.innerHTML = '';
     
     const img = document.createElement('img');
-    img.src = `/${city}/${imagePath}`; // Dodajemy miasto do ścieżki
+    img.src = `/${city}/${mode}/${imagePath}`; // Dodajemy miasto i tryb do ścieżki
     img.alt = 'Game location';
     mainView.appendChild(img);
 }

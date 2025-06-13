@@ -6,8 +6,18 @@ const multer = require('multer');
 
 async function giveGame(city, mode) {
     try {
-        // Read all json files from the city directory
-        const cityPath = path.join(__dirname, 'resources', city);
+        // Declare cityPath outside the if statements
+        let cityPath;
+        
+        // Set cityPath based on mode
+        if (mode === 'nmpz') {
+            cityPath = path.join(__dirname, 'resources', city, 'nmpz');
+        } else if (mode === 'nm') {
+            cityPath = path.join(__dirname, 'resources', city, 'nm');
+        } else {
+            throw new Error('Invalid mode specified');
+        }
+
         const files = await fs.readdir(cityPath);
         const jsonFiles = files.filter(file => file.endsWith('.json'));
         
@@ -59,18 +69,19 @@ app.get('/get_game', async (req, res) => {
 });
 
 // Serwujemy plik .osm
-app.get('/map/:city', (req, res) => {
+app.get('/map/:city/:mode', (req, res) => {
     const city = req.params.city || 'Urblin';
+    const mode = req.params.mode || 'nmpz';
     res.sendFile(path.join(__dirname, 'resources', city, `${city.toLowerCase()}.osm`));
 });
 
 // Endpoint dla dowolnego obrazu z danego miasta
-app.get('/:city/:filename', (req, res) => {
-    const { city, filename } = req.params;
+app.get('/:city/:mode/:filename', (req, res) => {
+    const { city, mode, filename } = req.params;
     
     // Sprawdź czy to na pewno plik obrazu
     if (filename.match(/\.(png|jpg|jpeg|gif)$/i)) {
-        res.sendFile(path.join(__dirname, 'resources', city, filename));
+        res.sendFile(path.join(__dirname, 'resources', city, mode, filename));
     } else {
         res.status(400).send('Dozwolone tylko pliki obrazów');
     }
@@ -92,10 +103,10 @@ function calculateScore(guessCoords, actualCoords) {
 
 app.post('/submit_guess', express.json(), async (req, res) => {
     try {
-        const { loc_id, coordinates } = req.body;
+        const { loc_id, coordinates , mode} = req.body;
         
         // Wczytaj prawidłowe koordynaty z pliku JSON
-        const cityPath = path.join(__dirname, 'resources', 'Urblin');
+        const cityPath = path.join(__dirname, 'resources', 'Urblin', mode);
         const locationData = JSON.parse(
             await fs.readFile(path.join(cityPath, `${loc_id}.json`), 'utf8')
         );

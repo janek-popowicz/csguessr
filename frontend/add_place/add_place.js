@@ -3,7 +3,7 @@ let selectedCoordinates = null;
 // Wait for map_viewer.js to load and initialize
 document.addEventListener('DOMContentLoaded', () => {
     // Initialize the map
-    fetch('/map.osm')
+    fetch('/map/Urblin')
         .then(res => res.text())
         .then(xmlText => {
             window.parseOSMData(xmlText);

@@ -1,7 +1,7 @@
 const canvas = document.getElementById("map");
 const ctx = canvas.getContext("2d");
 let clicked_coordinates = null;
-import { CITY } from "./script.js";
+import { CITY , MODE} from "./script.js";
 
 // Dodaj zmienne dla punktów podsumowania
 let summaryPoints = null;
@@ -415,7 +415,7 @@ function parseOSMData(xmlText) {
 }
 
 // Zmień fetch na:
-fetch(`/map/${CITY}`) // city powinno być przekazane jako argument
+fetch(`/map/${CITY}/${MODE}`)
     .then(res => res.text())
     .then(xmlText => {
         parseOSMData(xmlText);

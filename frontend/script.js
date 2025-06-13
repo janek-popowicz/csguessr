@@ -44,7 +44,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 },
                 body: JSON.stringify({
                     loc_id: currentGame.loc_id,
-                    coordinates: guessCoordinates
+                    coordinates: guessCoordinates,
+                    mode: MODE
                 })
             });
 
