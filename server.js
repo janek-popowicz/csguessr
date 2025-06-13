@@ -59,23 +59,25 @@ app.get('/get_game', async (req, res) => {
 });
 
 // Serwujemy plik .osm
-app.get('/map.osm', (req, res) => {
-    res.sendFile(path.join(__dirname, 'resources', 'Urblin', 'urblin.osm'));
+app.get('/map/:city', (req, res) => {
+    const city = req.params.city || 'Urblin';
+    res.sendFile(path.join(__dirname, 'resources', city, `${city.toLowerCase()}.osm`));
 });
 
-// Endpoint dla dowolnego obrazu
-app.get('/:filename', (req, res) => {
-    const filename = req.params.filename;
+// Endpoint dla dowolnego obrazu z danego miasta
+app.get('/:city/:filename', (req, res) => {
+    const { city, filename } = req.params;
+    
     // Sprawdź czy to na pewno plik obrazu
     if (filename.match(/\.(png|jpg|jpeg|gif)$/i)) {
-        res.sendFile(path.join(__dirname, 'resources', 'Urblin', filename));
+        res.sendFile(path.join(__dirname, 'resources', city, filename));
     } else {
         res.status(400).send('Dozwolone tylko pliki obrazów');
     }
 });
 
 function calculateScore(guessCoords, actualCoords) {
-    // Prosta funkcja do obliczania dystansu między dwoma punktami
+    // Prosta funkcja do obliczania dystansa między dwoma punktami
     // Można to rozbudować o bardziej zaawansowane metody
     const dx = guessCoords[0] - actualCoords[0];
     const dy = guessCoords[1] - actualCoords[1];

@@ -3,12 +3,10 @@
 <head>
     <title>CSGuessr</title>
     <link rel="stylesheet" href="style.css">
-    <link rel="icon" href="data:,">  <!-- empty favicon -->
+    <link rel="icon" href="data:,">
 </head>
 <body>
-  <div id="main-view">
-    <!-- Main game view (background image) -->
-  </div>
+  <div id="main-view"></div>
 
   <div id="overlay-controls" class="overlay">
     <button id="new-game-button">New Game</button>
@@ -20,15 +18,12 @@
   </div>
 
   <div id="celebration" class="celebration hidden">
-        <div class="celebration-content">5K!</div>
-    </div>
+    <div class="celebration-content">5K!</div>
+  </div>
 
-  <script src="map_viewer.js"></script>
-  <script type="module">
-        import { loadGameData, loadMainImage } from './location.js';
-        window.loadGameData = loadGameData;
-        window.loadMainImage = loadMainImage;
-    </script>
+  <!-- Zmień kolejność i typ skryptów -->
+  <script type="module" src="map_viewer.js"></script>
+  <script type="module" src="location.js"></script>
   <script type="module" src="script.js"></script>
 </body>
 </html>

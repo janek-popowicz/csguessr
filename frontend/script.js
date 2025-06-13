@@ -2,10 +2,12 @@ import { showSummary } from './summary.js';
 
 let currentGame = null;
 let guessCoordinates = [];
+export const CITY = 'Urblin';
+export const MODE = 'nmpz';
 
 async function startNewGame() {
-    window.resetMapState();
-    const gameData = await window.loadGameData('nmpz');
+    if (window.resetMapState) window.resetMapState();
+    const gameData = await window.loadGameData({ mode: 'nmpz', city: CITY });
     if (gameData) {
         currentGame = gameData;
         await window.loadMainImage(gameData.images[0]);
@@ -17,11 +19,14 @@ async function startNewGame() {
 window.startNewGame = startNewGame;
 
 document.addEventListener('DOMContentLoaded', async () => {
-    const newGameButton = document.getElementById('new-game-button');
-    newGameButton.addEventListener('click', startNewGame);
+    // Wait for other scripts to load
+    setTimeout(async () => {
+        const newGameButton = document.getElementById('new-game-button');
+        newGameButton.addEventListener('click', startNewGame);
 
-    // Start first game automatically
-    startNewGame();
+        // Start first game automatically
+        startNewGame();
+    }, 100);
 
     // Initialize guess button
     const guessButton = document.getElementById('guess-button');
@@ -69,19 +74,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     const mapContainer = document.getElementById('map-container');
-    const canvas = document.getElementById('map');
     
     mapContainer.addEventListener('mouseenter', () => {
         mapContainer.classList.add('expanded');
-        requestAnimationFrame(resizeCanvas);
+        if (window.resizeCanvas) window.resizeCanvas();
     });
     
     mapContainer.addEventListener('mouseleave', () => {
         mapContainer.classList.remove('expanded');
-        requestAnimationFrame(resizeCanvas);
+        if (window.resizeCanvas) window.resizeCanvas();
     });
 
     // Dodaj event listener na kliknięcie mapy
+    const canvas = document.getElementById('map');
     canvas.addEventListener('click', (e) => {
         if (!e.target.closest('#guess-button')) { // Ignoruj kliknięcia w przycisk
             const coords = window.getClickedCoordinates(e);

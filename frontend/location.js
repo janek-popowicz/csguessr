@@ -1,4 +1,6 @@
-async function loadGameData(mode = 'nmpz', city = 'Urblin') {
+import { MODE, CITY } from './script.js';
+
+async function loadGameData({ mode = MODE, city = CITY }) {
     try {
         const response = await fetch(`/get_game?mode=${mode}&city=${city}`);
         if (!response.ok) {
@@ -11,16 +13,17 @@ async function loadGameData(mode = 'nmpz', city = 'Urblin') {
     }
 }
 
-async function loadMainImage(imagePath) {
+async function loadMainImage(imagePath, city = 'Urblin') {
     const mainView = document.getElementById('main-view');
     // Clear previous image if exists
     mainView.innerHTML = '';
     
     const img = document.createElement('img');
-    img.src = `/${imagePath}`;
+    img.src = `/${city}/${imagePath}`; // Dodajemy miasto do ścieżki
     img.alt = 'Game location';
     mainView.appendChild(img);
 }
 
-// Don't load image immediately - wait for game data
-export { loadGameData, loadMainImage };
+// Make functions globally available
+window.loadGameData = loadGameData;
+window.loadMainImage = loadMainImage;
