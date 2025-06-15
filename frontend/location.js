@@ -52,13 +52,14 @@ async function loadMainImage(imagePaths, city = 'Urblin', mode = MODE) {
                 img.style.height = '100%';
                 img.style.flex = '0 0 auto';
                 img.style.transition = 'opacity 0.3s ease-out';
+                img.draggable = false; // Prevent dragging
                 img.onload = () => resolve(img);
             });
         });
 
         const loadedImages = await Promise.all(loadPromises);
 
-        // Add soft blending mask to each image (left/right fade)
+        // Add images with blending masks
         loadedImages.forEach((img, i) => {
             const mask = document.createElement('div');
             mask.style.position = 'relative';
@@ -78,19 +79,20 @@ async function loadMainImage(imagePaths, city = 'Urblin', mode = MODE) {
             imageStrip.appendChild(mask);
         });
 
-        // Clone first few images to end to allow seamless scroll loop
-        for (let i = 0; i < 2; i++) {
+        // Clone first four images to end
+        for (let i = 0; i < 4; i++) {
             imageStrip.appendChild(loadedImages[i].cloneNode(true));
         }
 
         panoramaContainer.appendChild(imageStrip);
         mainView.appendChild(panoramaContainer);
 
-        initializePanoramaControls();
+        // Initialize controls and set initial position
+        initializePanoramaControls(loadedImages);
     }
 }
 
-function initializePanoramaControls() {
+function initializePanoramaControls(loadedImages) {
     const container = document.getElementById('panorama-container');
     const strip = document.getElementById('image-strip');
     let isDragging = false;
@@ -102,10 +104,32 @@ function initializePanoramaControls() {
     let currentScale = 1;
     const MIN_SCALE = 1;
     const MAX_SCALE = 3;
+    let startY;
+    let scrollTop;
+
+    // Set initial scroll position to the 4th image
+    setTimeout(() => {
+        const fourthImage = loadedImages[3];
+        if (fourthImage) {
+            // Calculate the total width of first three images
+            const offset = loadedImages.slice(0, 3).reduce((total, img) => {
+                return total + img.offsetWidth;
+            }, 0);
+            
+            // Set scroll position to show the fourth image
+            container.scrollLeft = offset;
+        }
+    }, 0);
 
     function updateScroll() {
         if (Math.abs(momentum) > 0.1) {
             container.scrollLeft += momentum;
+            
+            if (currentScale > 1) {
+                // Apply momentum to vertical scroll only when zoomed
+                container.scrollTop += momentum * 0.5; // Reduced vertical momentum for better control
+            }
+            
             momentum *= 0.93;
             animationFrame = requestAnimationFrame(updateScroll);
         }
@@ -114,7 +138,9 @@ function initializePanoramaControls() {
     container.addEventListener('mousedown', (e) => {
         isDragging = true;
         startX = e.pageX;
+        startY = e.pageY;
         scrollLeft = container.scrollLeft;
+        scrollTop = container.scrollTop;
         lastX = e.pageX;
         momentum = 0;
         cancelAnimationFrame(animationFrame);
@@ -126,10 +152,19 @@ function initializePanoramaControls() {
         e.preventDefault();
 
         const dx = startX - e.pageX;
+        const dy = startY - e.pageY;
         const x = e.pageX;
         momentum = (lastX - x) * 0.9;
         lastX = x;
-        container.scrollLeft = scrollLeft + dx;
+
+        if (currentScale > 1) {
+            // Allow both horizontal and vertical scrolling when zoomed
+            container.scrollLeft = scrollLeft + dx;
+            container.scrollTop = scrollTop + dy;
+        } else {
+            // Only horizontal scrolling when not zoomed
+            container.scrollLeft = scrollLeft + dx;
+        }
     });
 
     function stopDragging() {
