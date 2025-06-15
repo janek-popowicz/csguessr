@@ -1,4 +1,10 @@
-export function showSummary(guess, actual, score) {
+let summaryVisible = false;
+
+export function setSummaryState(state) {
+    summaryVisible = state;
+}
+
+export function showSummary(guessCoords, actualCoords, score) {
     // Ukryj przycisk guess
     document.getElementById('guess-button').style.display = 'none';
     
@@ -11,7 +17,7 @@ export function showSummary(guess, actual, score) {
     mapContainer.classList.add('fullscreen');
     
     // Oznacz punkty na mapie
-    window.markSummaryPoints(guess, actual);
+    window.markSummaryPoints(guessCoords, actualCoords);
     
     // Dodaj informacje o wyniku
     const scoreInfo = document.createElement('div');
@@ -36,4 +42,6 @@ export function showSummary(guess, actual, score) {
         // Rozpocznij nową grę
         document.getElementById('new-game-button').click();
     });
+
+    summaryVisible = true;
 }

@@ -1,11 +1,14 @@
-import { showSummary } from './summary.js';
+import { showSummary, setSummaryState } from './summary.js';
 
 let currentGame = null;
 let guessCoordinates = [];
+let isSummaryVisible = false;
 export const CITY = 'Urblin';
 export const MODE = 'nm'; // nmpz or nm
 
 async function startNewGame() {
+    guessCoordinates = null;
+    isSummaryVisible = false;
     if (window.resetMapState) window.resetMapState();
     const gameData = await window.loadGameData({ mode: MODE, city: CITY });  // Używamy stałej MODE
     if (gameData) {
@@ -30,9 +33,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Initialize guess button
     const guessButton = document.getElementById('guess-button');
-    guessButton.addEventListener('click', async () => {
+    
+    // Extract guess submission logic into a function
+    async function submitGuess() {
         if (!currentGame || !guessCoordinates) {
             console.log('No game in progress or no guess made');
+            return;
+        }
+
+        // Check if summary is visible
+        if (isSummaryVisible) {
+            console.log('Cannot submit while summary is visible');
             return;
         }
 
@@ -56,10 +67,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             const result = await response.json();
             console.log('Guess result:', result);
 
-            // Pokaż ekran podsumowania
+            // Set summary state before showing it
+            isSummaryVisible = true;
             showSummary(guessCoordinates, result.actual_coords, result.score);
 
-            // Celebration dla 5000 punktów
             if (result.score === 5000) {
                 const celebration = document.getElementById('celebration');
                 celebration.classList.remove('hidden');
@@ -71,6 +82,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         } catch (error) {
             console.error('Error submitting guess:', error);
+        }
+    }
+
+    // Add click event listener
+    guessButton.addEventListener('click', submitGuess);
+
+    // Add space key event listener
+    document.addEventListener('keydown', (e) => {
+        if (e.code === 'Space' && !e.repeat && !isSummaryVisible) {
+            e.preventDefault(); // Prevent page scroll
+            submitGuess();
         }
     });
 
