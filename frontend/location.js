@@ -99,6 +99,9 @@ function initializePanoramaControls() {
     let momentum = 0;
     let lastX;
     let animationFrame;
+    let currentScale = 1;
+    const MIN_SCALE = 1;
+    const MAX_SCALE = 3;
 
     function updateScroll() {
         if (Math.abs(momentum) > 0.1) {
@@ -140,16 +143,35 @@ function initializePanoramaControls() {
     container.addEventListener('mouseup', stopDragging);
     container.addEventListener('mouseleave', stopDragging);
 
-    container.addEventListener('scroll', () => {
-        const maxScroll = strip.scrollWidth - container.clientWidth;
-        if (container.scrollLeft <= 0) {
-            container.scrollLeft = maxScroll - container.clientWidth;
-        } else if (container.scrollLeft >= maxScroll) {
-            container.scrollLeft = container.clientWidth;
+    container.addEventListener("wheel", (e) => {
+        e.preventDefault();
+        
+        const zoomIntensity = 0.2;
+        const zoom = e.deltaY < 0 ? 1 + zoomIntensity : 1 - zoomIntensity;
+        
+        const newScale = currentScale * zoom;
+        if (newScale > MAX_SCALE || newScale < MIN_SCALE) {
+            return;
         }
-    });
+        
+        // Get mouse position relative to container
+        const rect = container.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
 
-    container.style.cursor = 'grab';
+        // Calculate scroll position before zoom
+        const beforeZoomX = mouseX + container.scrollLeft;
+        const beforeZoomY = mouseY + container.scrollTop;
+
+        // Apply new scale
+        currentScale = newScale;
+        strip.style.transform = `scale(${currentScale})`;
+        strip.style.transformOrigin = '0 0';
+
+        // Calculate new scroll position
+        container.scrollLeft = (beforeZoomX * zoom) - mouseX;
+        container.scrollTop = (beforeZoomY * zoom) - mouseY;
+    });
 }
 
 window.loadGameData = loadGameData;

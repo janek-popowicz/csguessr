@@ -175,19 +175,17 @@ body {
 }
 
 #panorama-container {
+    overflow: scroll;
     width: 100%;
     height: 100%;
-    overflow: hidden;
-    background: black;
     position: relative;
-    user-select: none;
 }
 
 #image-strip {
     display: flex;
     height: 100%;
-    width: fit-content;
-    gap: 0;
+    transform-origin: 0 0;
+    will-change: transform;
 }
 
 .panorama-image {
@@ -197,7 +195,7 @@ body {
     -webkit-user-drag: none;
 }
 
-/* Hide scrollbar but keep functionality */
+/* Hide scrollbars */
 #panorama-container::-webkit-scrollbar {
     display: none;
 }
