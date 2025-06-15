@@ -101,7 +101,7 @@ function initializePanoramaControls(loadedImages) {
     let momentum = 0;
     let lastX;
     let animationFrame;
-    let currentScale = 1;
+    let currentScale = 1;;
     const MIN_SCALE = 1;
     const MAX_SCALE = 3;
     let startY;
@@ -127,7 +127,7 @@ function initializePanoramaControls(loadedImages) {
             
             if (currentScale > 1) {
                 // Apply momentum to vertical scroll only when zoomed
-                container.scrollTop += momentum * 0.5; // Reduced vertical momentum for better control
+                container.scrollTop += momentum * 1; // Reduced vertical momentum for better control
             }
             
             momentum *= 0.93;
@@ -154,7 +154,7 @@ function initializePanoramaControls(loadedImages) {
         const dx = startX - e.pageX;
         const dy = startY - e.pageY;
         const x = e.pageX;
-        momentum = (lastX - x) * 0.9;
+        momentum = (lastX - x) * 1;
         lastX = x;
 
         if (currentScale > 1) {
@@ -181,7 +181,7 @@ function initializePanoramaControls(loadedImages) {
     container.addEventListener("wheel", (e) => {
         e.preventDefault();
         
-        const zoomIntensity = 0.2;
+        const zoomIntensity = 0.1;
         const zoom = e.deltaY < 0 ? 1 + zoomIntensity : 1 - zoomIntensity;
         
         const newScale = currentScale * zoom;
